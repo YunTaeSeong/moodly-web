@@ -825,6 +825,8 @@
   border-radius: 8px;
   padding: 1.5rem;
   background-color: white;
+  display: flex;
+  flex-direction: column;
 }
 
 .inquiry-item-header {
@@ -835,6 +837,7 @@
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #f1f3f5;
+  width: 100%;
 }
 
 .inquiry-item-header-left {
@@ -842,6 +845,13 @@
   align-items: center;
   gap: 1rem;
   flex: 1;
+}
+
+.inquiry-item-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .inquiry-author {
@@ -885,11 +895,48 @@
   background-color: #2980b9;
 }
 
+.inquiry-edit-btn {
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+.inquiry-edit-btn:hover {
+  background-color: #229954;
+}
+
+.inquiry-delete-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+.inquiry-delete-btn:hover {
+  background-color: #c0392b;
+}
+
 .inquiry-item-content {
   color: #34495e;
   line-height: 1.6;
   white-space: pre-wrap;
   margin-bottom: 1rem;
+  width: 100%;
+  text-align: left;
+  padding-top: 0.5rem;
 }
 
 .inquiry-reply {
@@ -898,6 +945,8 @@
   background-color: #f8f9fa;
   border-left: 3px solid #3498db;
   border-radius: 4px;
+  width: 100%;
+  text-align: left;
 }
 
 .inquiry-reply-header {

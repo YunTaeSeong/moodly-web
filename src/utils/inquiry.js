@@ -52,6 +52,32 @@ export const deleteInquiry = (inquiryId) => {
   }
 };
 
+// 상품 문의 수정
+export const updateInquiry = (inquiryId, newContent) => {
+  try {
+    const inquiries = getInquiries();
+    const inquiryIndex = inquiries.findIndex(inquiry => inquiry.id === inquiryId);
+    
+    if (inquiryIndex === -1) {
+      return null;
+    }
+    
+    // 답변이 있으면 수정 불가
+    if (inquiries[inquiryIndex].reply || inquiries[inquiryIndex].status === '답변완료') {
+      return null;
+    }
+    
+    inquiries[inquiryIndex].content = newContent;
+    inquiries[inquiryIndex].updatedAt = new Date().toISOString();
+    
+    localStorage.setItem(INQUIRY_KEY, JSON.stringify(inquiries));
+    return inquiries[inquiryIndex];
+  } catch (error) {
+    console.error('상품 문의 수정 중 오류 발생:', error);
+    return null;
+  }
+};
+
 // 상품 문의 답변 추가
 export const addInquiryReply = (inquiryId, replyContent) => {
   try {

@@ -100,6 +100,281 @@
   color: #7f8c8d;
 }
 
+/* ID/PW 찾기 링크 */
+.login-find-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.find-link {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  transition: color 0.3s ease;
+}
+
+.find-link:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+.find-link-divider {
+  color: #ddd;
+  font-size: 0.9rem;
+}
+
+/* ID/PW 찾기 모달 */
+.find-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.find-modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.find-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.find-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #2c3e50;
+}
+
+.find-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #7f8c8d;
+  transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.find-modal-close:hover {
+  color: #2c3e50;
+}
+
+.find-modal-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.find-modal-body {
+  padding: 1.5rem;
+}
+
+.find-modal-body .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.find-modal-body .form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #34495e;
+  font-weight: 500;
+}
+
+.find-modal-body .form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+  box-sizing: border-box;
+}
+
+.find-modal-body .form-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.find-modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.find-modal-btn {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.find-modal-btn.cancel {
+  background-color: #ecf0f1;
+  color: #2c3e50;
+}
+
+.find-modal-btn.cancel:hover {
+  background-color: #d5dbdb;
+}
+
+.find-modal-btn.submit {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.find-modal-btn.submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* 찾기 결과 */
+.find-result {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.find-result-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  color: #27ae60;
+}
+
+.find-result-message {
+  font-size: 1.1rem;
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.find-result-id {
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.find-result-id strong {
+  font-size: 1.2rem;
+  color: #667eea;
+}
+
+.find-password-link {
+  margin-bottom: 1.5rem;
+}
+
+.find-password-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.find-password-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+  background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+}
+
+.find-result-password {
+  margin-bottom: 1.5rem;
+}
+
+.temp-password-box {
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 2px solid #667eea;
+}
+
+.temp-password-box strong {
+  display: block;
+  margin-bottom: 1rem;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.temp-password {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #e74c3c;
+  background-color: white;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  letter-spacing: 2px;
+  font-family: 'Courier New', monospace;
+}
+
+.temp-password-warning {
+  font-size: 0.85rem;
+  color: #e67e22;
+  margin: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eee;
+}
+
+.temp-password-info {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  margin: 0.5rem 0 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eee;
+}
+
+.required {
+  color: #e74c3c;
+}
+
 /* 반응형 디자인 */
 @media (max-width: 480px) {
   .login-box {

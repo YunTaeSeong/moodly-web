@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { isWishlisted, addToWishlist, removeFromWishlist } from '../utils/wishlist';
 import { getDeliveryAddress, saveDeliveryAddress, hasDeliveryAddress } from '../utils/delivery';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { processPayment, generateOrderId } from '../utils/payment';
-import { addInquiry, getInquiries, addInquiryReply } from '../utils/inquiry';
+import { addInquiry, getInquiries, addInquiryReply, updateInquiry, deleteInquiry } from '../utils/inquiry';
 import { receiveProductCoupon, getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { saveOrder } from '../utils/order';
 import { allProducts } from '../utils/products';
 import { getReviewsByProductId } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
+import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
+import { getCookie } from '../utils/cookie';
 import './ProductDetail.css';
 
 // 샘플 상품 데이터 (실제로는 API나 상태 관리에서 가져올 수 있습니다)
@@ -356,10 +358,11 @@ const products = {
 function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const productId = parseInt(id);
   // 먼저 기본 products에서 찾고, 없으면 categoryProducts에서 찾기
   const product = products[productId] || getCategoryProductById(productId);
-  const [activeTab, setActiveTab] = useState('detail');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'detail');
   const [wishlistStatus, setWishlistStatus] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedTotal, setSelectedTotal] = useState(null);
@@ -372,11 +375,19 @@ function ProductDetail() {
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [selectedInquiryId, setSelectedInquiryId] = useState(null);
   const [replyContent, setReplyContent] = useState('');
+  const [showEditInquiryModal, setShowEditInquiryModal] = useState(false);
+  const [editingInquiryId, setEditingInquiryId] = useState(null);
+  const [editingInquiryContent, setEditingInquiryContent] = useState('');
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewSortOrder, setReviewSortOrder] = useState('latest'); // 'latest' or 'rating'
+
+  // 페이지 로드 시 스크롤을 맨 위로 이동
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [productId]);
 
   // 찜한 상품 상태 확인 및 배송지 정보 불러오기
   useEffect(() => {
@@ -709,16 +720,26 @@ function ProductDetail() {
       return;
     }
 
+    const username = getCookie('username') || 'test';
+    const userEmail = getCookie('userEmail') || '';
+    const userId = userEmail || username;
+
     const inquiryData = {
       productId: product.id,
       productName: product.name,
       content: inquiryContent.trim(),
-      author: 'test' // 실제로는 로그인한 사용자 정보 사용
+      author: username,
+      userEmail: userEmail
     };
 
     const newInquiry = addInquiry(inquiryData);
     
     if (newInquiry) {
+      // 사용자에게 알림 생성
+      createInquiryNotification(userId, product.id, product.name);
+      // 관리자에게 알림 생성
+      createInquiryNotificationForAdmin(userId, product.id, product.name, newInquiry.id);
+      
       window.alert('상품 문의가 등록되었습니다.');
       handleCloseInquiryModal();
       // 상품 문의 목록 새로고침
@@ -741,6 +762,59 @@ function ProductDetail() {
     setReplyContent('');
   };
 
+  // 문의 수정 모달 열기
+  const handleOpenEditInquiryModal = (inquiryId, currentContent) => {
+    setEditingInquiryId(inquiryId);
+    setEditingInquiryContent(currentContent);
+    setShowEditInquiryModal(true);
+  };
+
+  // 문의 수정 모달 닫기
+  const handleCloseEditInquiryModal = () => {
+    setShowEditInquiryModal(false);
+    setEditingInquiryId(null);
+    setEditingInquiryContent('');
+  };
+
+  // 문의 수정 제출
+  const handleSubmitEditInquiry = () => {
+    if (!editingInquiryId) {
+      window.alert('문의를 선택해주세요.');
+      return;
+    }
+
+    if (!editingInquiryContent.trim()) {
+      window.alert('문의 내용을 입력해주세요.');
+      return;
+    }
+
+    const updatedInquiry = updateInquiry(editingInquiryId, editingInquiryContent.trim());
+    
+    if (updatedInquiry) {
+      window.alert('상품 문의가 수정되었습니다.');
+      handleCloseEditInquiryModal();
+      // 상품 문의 목록 새로고침
+      const productInquiries = getInquiries(product.id);
+      setInquiries(productInquiries);
+    } else {
+      window.alert('상품 문의 수정에 실패했습니다.');
+    }
+  };
+
+  // 문의 삭제
+  const handleDeleteInquiry = (inquiryId) => {
+    if (window.confirm('상품 문의를 삭제하시겠습니까?')) {
+      if (deleteInquiry(inquiryId)) {
+        window.alert('상품 문의가 삭제되었습니다.');
+        // 상품 문의 목록 새로고침
+        const productInquiries = getInquiries(product.id);
+        setInquiries(productInquiries);
+      } else {
+        window.alert('상품 문의 삭제에 실패했습니다.');
+      }
+    }
+  };
+
   const handleSubmitReply = () => {
     if (!selectedInquiryId) {
       window.alert('문의를 선택해주세요.');
@@ -752,9 +826,17 @@ function ProductDetail() {
       return;
     }
 
+    // 원래 문의 정보 가져오기 (알림을 위해)
+    const allInquiries = getInquiries();
+    const originalInquiry = allInquiries.find(inq => inq.id === selectedInquiryId);
+    
     const updatedInquiry = addInquiryReply(selectedInquiryId, replyContent.trim());
     
-    if (updatedInquiry) {
+    if (updatedInquiry && originalInquiry) {
+      // 문의 작성자에게 알림 생성
+      const inquiryAuthor = originalInquiry.userEmail || originalInquiry.author || 'test';
+      createInquiryReplyNotification(inquiryAuthor, product.id, product.name);
+      
       window.alert('답변이 등록되었습니다.');
       handleCloseReplyModal();
       // 상품 문의 목록 새로고침
@@ -884,32 +966,56 @@ function ProductDetail() {
               </div>
             ) : (
               <div className="inquiry-list">
-                {inquiries.map((inquiry) => (
-                  <div key={inquiry.id} className="inquiry-item">
-                    <div className="inquiry-item-header">
-                      <div className="inquiry-item-header-left">
-                        <span className="inquiry-author">{inquiry.author}</span>
-                        <span className="inquiry-date">
-                          {new Date(inquiry.createdAt).toLocaleDateString('ko-KR')}
-                        </span>
-                        <span className={`inquiry-status ${inquiry.status === '답변완료' ? 'completed' : ''}`}>
-                          {inquiry.status}
-                        </span>
+                {inquiries.map((inquiry) => {
+                  const username = getCookie('username') || 'test';
+                  const userEmail = getCookie('userEmail') || '';
+                  const isMyInquiry = (inquiry.author === username || inquiry.userEmail === userEmail) && isLoggedIn();
+                  const canEditDelete = isMyInquiry && !inquiry.reply && inquiry.status !== '답변완료';
+                  
+                  return (
+                    <div key={inquiry.id} className="inquiry-item">
+                      <div className="inquiry-item-header">
+                        <div className="inquiry-item-header-left">
+                          <span className="inquiry-author">{inquiry.author}</span>
+                          <span className="inquiry-date">
+                            {new Date(inquiry.createdAt).toLocaleDateString('ko-KR')}
+                          </span>
+                          <span className={`inquiry-status ${inquiry.status === '답변완료' ? 'completed' : ''}`}>
+                            {inquiry.status}
+                          </span>
+                        </div>
+                        <div className="inquiry-item-header-right">
+                          {canEditDelete && (
+                            <>
+                              <button 
+                                className="inquiry-edit-btn"
+                                onClick={() => handleOpenEditInquiryModal(inquiry.id, inquiry.content)}
+                              >
+                                수정
+                              </button>
+                              <button 
+                                className="inquiry-delete-btn"
+                                onClick={() => handleDeleteInquiry(inquiry.id)}
+                              >
+                                삭제
+                              </button>
+                            </>
+                          )}
+                          {isAdmin() && inquiry.status === '답변대기' && (
+                            <button 
+                              className="inquiry-reply-btn"
+                              onClick={() => {
+                                setSelectedInquiryId(inquiry.id);
+                                setReplyContent('');
+                                setShowReplyModal(true);
+                              }}
+                            >
+                              답변하기
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      {isAdmin() && inquiry.status === '답변대기' && (
-                        <button 
-                          className="inquiry-reply-btn"
-                          onClick={() => {
-                            setSelectedInquiryId(inquiry.id);
-                            setReplyContent('');
-                            setShowReplyModal(true);
-                          }}
-                        >
-                          답변하기
-                        </button>
-                      )}
-                    </div>
-                    <div className="inquiry-item-content">{inquiry.content}</div>
+                      <div className="inquiry-item-content">{inquiry.content}</div>
                     {inquiry.reply && (
                       <div className="inquiry-reply">
                         <div className="inquiry-reply-header">
@@ -922,7 +1028,45 @@ function ProductDetail() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 문의 수정 모달 */}
+            {showEditInquiryModal && (
+              <div className="inquiry-modal-overlay" onClick={handleCloseEditInquiryModal}>
+                <div className="inquiry-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="inquiry-modal-header">
+                    <h3>상품 문의 수정</h3>
+                    <button className="inquiry-modal-close" onClick={handleCloseEditInquiryModal}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="inquiry-modal-body">
+                    <div className="inquiry-form-group">
+                      <label>문의 내용</label>
+                      <textarea
+                        value={editingInquiryContent}
+                        onChange={(e) => setEditingInquiryContent(e.target.value)}
+                        placeholder="문의 내용을 입력해주세요"
+                        className="inquiry-content-textarea"
+                        rows="8"
+                      />
+                    </div>
+                  </div>
+                  <div className="inquiry-modal-footer">
+                    <button className="inquiry-modal-btn cancel" onClick={handleCloseEditInquiryModal}>
+                      취소
+                    </button>
+                    <button className="inquiry-modal-btn submit" onClick={handleSubmitEditInquiry}>
+                      수정하기
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

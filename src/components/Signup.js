@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
+import { addUser } from '../utils/user';
 import './Signup.css';
 
 function Signup() {
@@ -10,10 +11,7 @@ function Signup() {
     password: '',
     confirmPassword: '',
     name: '',
-    phone: '',
-    agreeTerms: false,
-    agreePrivacy: false,
-    agreeMarketing: false
+    phone: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -216,14 +214,6 @@ function Signup() {
       newErrors.phone = '전화번호는 010-XXXX-XXXX 형식으로 입력해주세요.';
     }
 
-    // 약관 동의
-    if (!formData.agreeTerms) {
-      newErrors.agreeTerms = '이용약관에 동의해주세요.';
-    }
-    if (!formData.agreePrivacy) {
-      newErrors.agreePrivacy = '개인정보 처리방침에 동의해주세요.';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -248,9 +238,20 @@ function Signup() {
     e.preventDefault();
     
     if (validate()) {
-      // 회원가입 성공 처리 (실제로는 API 호출)
-      alert('회원가입이 완료되었습니다!');
-      navigate('/login');
+      // 회원가입 처리
+      const result = addUser({
+        userId: formData.userId,
+        password: formData.password,
+        name: formData.name,
+        phone: formData.phone
+      });
+      
+      if (result.success) {
+        window.alert('회원가입이 완료되었습니다!');
+        navigate('/login');
+      } else {
+        window.alert(result.message || '회원가입에 실패했습니다.');
+      }
     }
   };
 
@@ -381,49 +382,6 @@ function Signup() {
               className={`form-input ${errors.phone ? 'error' : ''}`}
             />
             {errors.phone && <span className="error-message">{errors.phone}</span>}
-          </div>
-
-          {/* 약관 동의 */}
-          <div className="form-group terms-group">
-            <div className="terms-item">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="agreeTerms"
-                  checked={formData.agreeTerms}
-                  onChange={handleChange}
-                />
-                <span>이용약관 동의 <span className="required">*</span></span>
-              </label>
-              <button type="button" className="terms-link">보기</button>
-            </div>
-            {errors.agreeTerms && <span className="error-message">{errors.agreeTerms}</span>}
-
-            <div className="terms-item">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="agreePrivacy"
-                  checked={formData.agreePrivacy}
-                  onChange={handleChange}
-                />
-                <span>개인정보 처리방침 동의 <span className="required">*</span></span>
-              </label>
-              <button type="button" className="terms-link">보기</button>
-            </div>
-            {errors.agreePrivacy && <span className="error-message">{errors.agreePrivacy}</span>}
-
-            <div className="terms-item">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="agreeMarketing"
-                  checked={formData.agreeMarketing}
-                  onChange={handleChange}
-                />
-                <span>마케팅 정보 수신 동의 (선택)</span>
-              </label>
-            </div>
           </div>
 
           {/* 제출 버튼 */}

@@ -1245,3 +1245,492 @@
   }
 }
 
+/* 보안설정 - 비밀번호 변경 */
+.security-content {
+  max-width: 600px;
+  margin-top: 2rem;
+}
+
+.security-subtitle {
+  font-size: 1.3rem;
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.password-change-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.password-change-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.password-change-form .form-label {
+  font-size: 0.95rem;
+  color: #34495e;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.password-change-form .form-input {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.password-change-form .form-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.password-change-form .form-input.error {
+  border-color: #e74c3c;
+}
+
+.password-change-form .form-input.error:focus {
+  border-color: #e74c3c;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+.password-change-form .form-hint {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  margin: 0.25rem 0 0 0;
+}
+
+.password-change-form .error-message {
+  color: #e74c3c;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.password-change-form .success-message {
+  color: #27ae60;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.password-change-form .success-message-large {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #c3e6cb;
+  font-size: 1rem;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.password-change-form .required {
+  color: #e74c3c;
+}
+
+.password-change-form .form-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.password-change-btn {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: none;
+  padding: 0.875rem 2rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.password-change-btn:hover {
+  background: linear-gradient(135deg, #2980b9 0%, #1f6391 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.password-change-btn:active {
+  transform: translateY(0);
+}
+
+/* 반응형 - 보안설정 */
+@media (max-width: 768px) {
+  .security-content {
+    max-width: 100%;
+  }
+
+  .password-change-btn {
+    width: 100%;
+  }
+}
+
+/* 상품 문의 */
+.inquiry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.inquiry-item {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1.5rem;
+  background-color: white;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.inquiry-product-info {
+  display: flex;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.inquiry-product-image {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.inquiry-product-image:hover {
+  transform: scale(1.05);
+}
+
+.inquiry-product-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.inquiry-product-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  margin: 0;
+}
+
+.inquiry-product-name:hover {
+  color: #3498db;
+}
+
+.inquiry-item-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.inquiry-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.inquiry-item-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.inquiry-item-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.inquiry-date {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
+.inquiry-status {
+  padding: 0.25rem 0.75rem;
+  background-color: #fff3cd;
+  color: #856404;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.inquiry-status.completed {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.inquiry-status.pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.inquiry-edit-btn {
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+.inquiry-edit-btn:hover {
+  background-color: #229954;
+}
+
+.inquiry-delete-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+.inquiry-delete-btn:hover {
+  background-color: #c0392b;
+}
+
+.inquiry-item-content {
+  color: #34495e;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.inquiry-reply {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-left: 3px solid #3498db;
+  border-radius: 4px;
+}
+
+.inquiry-reply-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.inquiry-reply-label {
+  font-weight: 600;
+  color: #3498db;
+  font-size: 0.9rem;
+}
+
+.inquiry-reply-date {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.inquiry-reply-content {
+  color: #34495e;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.inquiry-create-btn {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 1rem;
+}
+
+.inquiry-create-btn:hover {
+  background-color: #2980b9;
+}
+
+/* 상품 문의 수정 모달 */
+.inquiry-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.inquiry-modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.inquiry-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.inquiry-modal-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #2c3e50;
+}
+
+.inquiry-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #7f8c8d;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s ease;
+}
+
+.inquiry-modal-close:hover {
+  color: #2c3e50;
+}
+
+.inquiry-modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.inquiry-form-group {
+  margin-bottom: 1rem;
+}
+
+.inquiry-form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.inquiry-content-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 150px;
+  transition: border-color 0.3s ease;
+}
+
+.inquiry-content-textarea:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.inquiry-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.inquiry-modal-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.inquiry-modal-btn.cancel {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.inquiry-modal-btn.cancel:hover {
+  background-color: #dee2e6;
+}
+
+.inquiry-modal-btn.submit {
+  background-color: #3498db;
+  color: white;
+}
+
+.inquiry-modal-btn.submit:hover {
+  background-color: #2980b9;
+}
+
+/* 반응형 - 상품 문의 */
+@media (max-width: 768px) {
+  .inquiry-item {
+    flex-direction: column;
+  }
+
+  .inquiry-product-info {
+    flex-direction: row;
+  }
+
+  .inquiry-product-image {
+    width: 80px;
+    height: 80px;
+  }
+
+  .inquiry-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .inquiry-item-header-right {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .inquiry-edit-btn,
+  .inquiry-delete-btn {
+    width: 100%;
+  }
+}
+

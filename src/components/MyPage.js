@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
 import { getAvailableCoupons, getReceivedCoupons, receiveCoupon, checkCouponExpiry } from '../utils/coupon';
 import { getOrders, getOrderCount, addTestOrder } from '../utils/order';
 import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from '../utils/review';
-import { getInquiries } from '../utils/inquiry';
+import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
+import { changePassword } from '../utils/user';
 import './MyPage.css';
 
 function MyPage() {
   const navigate = useNavigate();
-  const [activeMenu, setActiveMenu] = useState('home');
+  const [searchParams] = useSearchParams();
+  const [activeMenu, setActiveMenu] = useState(searchParams.get('menu') || 'home');
   const [wishlist, setWishlist] = useState([]);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [receivedCoupons, setReceivedCoupons] = useState([]);
@@ -25,6 +27,17 @@ function MyPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState('');
   const [reviewImages, setReviewImages] = useState([]);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [myInquiries, setMyInquiries] = useState([]);
+  const [showEditInquiryModal, setShowEditInquiryModal] = useState(false);
+  const [editingInquiryId, setEditingInquiryId] = useState(null);
+  const [editingInquiryContent, setEditingInquiryContent] = useState('');
 
   // 찜한 상품 목록 및 주문 내역 가져오기
   useEffect(() => {
@@ -53,8 +66,23 @@ function MyPage() {
       // 상품 문의 건수 가져오기
       const allInquiries = getInquiries();
       setInquiryCount(allInquiries.length);
+      
+      // 사용자별 상품 문의 가져오기
+      const userEmail = getCookie('userEmail') || '';
+      const userInquiries = allInquiries.filter(inquiry => 
+        inquiry.author === username || inquiry.userEmail === userEmail
+      );
+      setMyInquiries(userInquiries);
     }
   }, [activeMenu]);
+
+  // URL 쿼리 파라미터로 메뉴 변경
+  useEffect(() => {
+    const menuParam = searchParams.get('menu');
+    if (menuParam) {
+      setActiveMenu(menuParam);
+    }
+  }, [searchParams]);
 
   // 쿠폰 목록 가져오기
   useEffect(() => {
@@ -62,6 +90,19 @@ function MyPage() {
       checkCouponExpiry(); // 만료된 쿠폰 체크
       setAvailableCoupons(getAvailableCoupons());
       setReceivedCoupons(getReceivedCoupons());
+    }
+  }, [activeMenu]);
+
+  // 보안설정 메뉴 활성화 시 폼 초기화
+  useEffect(() => {
+    if (activeMenu === 'security') {
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setPasswordErrors({});
+      setPasswordSuccess(false);
     }
   }, [activeMenu]);
 
@@ -214,6 +255,84 @@ function MyPage() {
     }
   };
 
+  // 상품문의 수정 모달 열기
+  const handleOpenEditInquiryModal = (inquiryId, currentContent) => {
+    setEditingInquiryId(inquiryId);
+    setEditingInquiryContent(currentContent);
+    setShowEditInquiryModal(true);
+  };
+
+  // 상품문의 수정 모달 닫기
+  const handleCloseEditInquiryModal = () => {
+    setShowEditInquiryModal(false);
+    setEditingInquiryId(null);
+    setEditingInquiryContent('');
+  };
+
+  // 상품문의 수정 제출
+  const handleSubmitEditInquiry = () => {
+    if (!editingInquiryId) {
+      window.alert('문의를 선택해주세요.');
+      return;
+    }
+
+    if (!editingInquiryContent.trim()) {
+      window.alert('문의 내용을 입력해주세요.');
+      return;
+    }
+
+    const updatedInquiry = updateInquiry(editingInquiryId, editingInquiryContent.trim());
+    
+    if (updatedInquiry) {
+      window.alert('상품 문의가 수정되었습니다.');
+      handleCloseEditInquiryModal();
+      // 상품 문의 목록 새로고침
+      const allInquiries = getInquiries();
+      const userEmail = getCookie('userEmail') || '';
+      const username = getCookie('username') || 'test';
+      const userInquiries = allInquiries.filter(inquiry => 
+        inquiry.author === username || inquiry.userEmail === userEmail
+      );
+      setMyInquiries(userInquiries);
+      setInquiryCount(allInquiries.length);
+    } else {
+      window.alert('상품 문의 수정에 실패했습니다.');
+    }
+  };
+
+  // 상품문의 삭제
+  const handleDeleteInquiry = (inquiryId) => {
+    if (window.confirm('상품 문의를 삭제하시겠습니까?')) {
+      if (deleteInquiry(inquiryId)) {
+        window.alert('상품 문의가 삭제되었습니다.');
+        const allInquiries = getInquiries();
+        const userEmail = getCookie('userEmail') || '';
+        const username = getCookie('username') || 'test';
+        const userInquiries = allInquiries.filter(inquiry => 
+          inquiry.author === username || inquiry.userEmail === userEmail
+        );
+        setMyInquiries(userInquiries);
+        setInquiryCount(allInquiries.length);
+      } else {
+        window.alert('상품 문의 삭제에 실패했습니다.');
+      }
+    }
+  };
+
+  // 상품 정보 가져오기
+  const getProductInfo = (productId) => {
+    const product = allProducts.find(p => p.id === productId);
+    if (product) return product;
+    
+    // categoryProducts에서 찾기
+    try {
+      const { getCategoryProductById } = require('../utils/categoryProducts');
+      return getCategoryProductById(productId);
+    } catch (e) {
+      return null;
+    }
+  };
+
   // 로그인 체크
   if (!isLoggedIn()) {
     return (
@@ -230,6 +349,7 @@ function MyPage() {
   }
 
   const menuItems = [
+    { id: 'security', label: '보안설정' },
     { id: 'home', label: '마이쇼핑 홈' },
     { id: 'orders', label: '주문/배송내역' },
     { id: 'wishlist', label: '찜한 상품' },
@@ -238,8 +358,147 @@ function MyPage() {
     { id: 'coupon', label: '쿠폰함' }
   ];
 
+  // 비밀번호 변경 핸들러
+  const handlePasswordChange = (e) => {
+    e.preventDefault();
+    setPasswordErrors({});
+    setPasswordSuccess(false);
+
+    // 유효성 검사
+    const errors = {};
+    
+    if (!passwordForm.currentPassword) {
+      errors.currentPassword = '현재 비밀번호를 입력해주세요.';
+    }
+    
+    if (!passwordForm.newPassword) {
+      errors.newPassword = '새 비밀번호를 입력해주세요.';
+    } else {
+      // 비밀번호 유효성 검사 (영문, 숫자, 특수문자 포함 8-20자)
+      const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,20}$/;
+      if (!passwordRegex.test(passwordForm.newPassword)) {
+        errors.newPassword = '영문, 숫자, 특수문자를 포함하여 8-20자로 입력해주세요.';
+      }
+    }
+    
+    if (!passwordForm.confirmPassword) {
+      errors.confirmPassword = '새 비밀번호 확인을 입력해주세요.';
+    } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      errors.confirmPassword = '비밀번호가 일치하지 않습니다.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+
+    // 비밀번호 변경 실행
+    const userEmail = getCookie('userEmail') || '';
+    const result = changePassword(
+      userEmail,
+      passwordForm.currentPassword,
+      passwordForm.newPassword
+    );
+
+    if (result.success) {
+      setPasswordSuccess(true);
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setTimeout(() => {
+        setPasswordSuccess(false);
+      }, 3000);
+    } else {
+      setPasswordErrors({ submit: result.message });
+    }
+  };
+
   const renderContent = () => {
     switch (activeMenu) {
+      case 'security':
+        return (
+          <div className="mypage-content-section">
+            <h2>보안설정</h2>
+            <div className="security-content">
+              <h3 className="security-subtitle">비밀번호 변경</h3>
+              <form onSubmit={handlePasswordChange} className="password-change-form">
+                <div className="form-group">
+                  <label htmlFor="currentPassword" className="form-label">
+                    현재 비밀번호 <span className="required">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    id="currentPassword"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    placeholder="현재 비밀번호를 입력하세요"
+                    className={`form-input ${passwordErrors.currentPassword ? 'error' : ''}`}
+                  />
+                  {passwordErrors.currentPassword && (
+                    <span className="error-message">{passwordErrors.currentPassword}</span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="newPassword" className="form-label">
+                    새 비밀번호 <span className="required">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    id="newPassword"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    placeholder="영문, 숫자, 특수문자 포함 8-20자"
+                    className={`form-input ${passwordErrors.newPassword ? 'error' : ''}`}
+                  />
+                  {passwordErrors.newPassword && (
+                    <span className="error-message">{passwordErrors.newPassword}</span>
+                  )}
+                  <p className="form-hint">영문, 숫자, 특수문자를 포함하여 8-20자로 입력해주세요.</p>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="confirmPassword" className="form-label">
+                    새 비밀번호 확인 <span className="required">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    placeholder="새 비밀번호를 다시 입력하세요"
+                    className={`form-input ${passwordErrors.confirmPassword ? 'error' : ''}`}
+                  />
+                  {passwordErrors.confirmPassword && (
+                    <span className="error-message">{passwordErrors.confirmPassword}</span>
+                  )}
+                  {passwordForm.newPassword && passwordForm.confirmPassword && 
+                   passwordForm.newPassword === passwordForm.confirmPassword && (
+                    <span className="success-message">비밀번호가 일치합니다.</span>
+                  )}
+                </div>
+
+                {passwordErrors.submit && (
+                  <div className="error-message">{passwordErrors.submit}</div>
+                )}
+
+                {passwordSuccess && (
+                  <div className="success-message-large">
+                    ✓ 비밀번호가 성공적으로 변경되었습니다.
+                  </div>
+                )}
+
+                <div className="form-actions">
+                  <button type="submit" className="password-change-btn">
+                    비밀번호 변경
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
       case 'home':
         return (
           <div className="mypage-content-section">
@@ -493,12 +752,129 @@ function MyPage() {
         return (
           <div className="mypage-content-section">
             <h2>상품 문의</h2>
-            <div className="mypage-empty">
-              <p>등록된 상품 문의가 없습니다.</p>
-              <button className="inquiry-create-btn" onClick={() => navigate('/')}>
-                상품 문의 작성하기
-              </button>
-            </div>
+            {myInquiries.length === 0 ? (
+              <div className="mypage-empty">
+                <p>등록된 상품 문의가 없습니다.</p>
+                <button className="inquiry-create-btn" onClick={() => navigate('/')}>
+                  상품 문의 작성하기
+                </button>
+              </div>
+            ) : (
+              <div className="inquiry-list">
+                {myInquiries.map((inquiry) => {
+                  const product = getProductInfo(inquiry.productId);
+                  return (
+                    <div key={inquiry.id} className="inquiry-item">
+                      <div className="inquiry-product-info">
+                        {product && (
+                          <>
+                            <img 
+                              src={product.image || 'https://via.placeholder.com/100'} 
+                              alt={product.name}
+                              className="inquiry-product-image"
+                              onClick={() => navigate(`/product/${inquiry.productId}`)}
+                            />
+                            <div className="inquiry-product-details">
+                              <h4 
+                                className="inquiry-product-name"
+                                onClick={() => navigate(`/product/${inquiry.productId}`)}
+                              >
+                                {product.name}
+                              </h4>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="inquiry-item-content-wrapper">
+                        <div className="inquiry-item-header">
+                          <div className="inquiry-item-header-left">
+                            <span className="inquiry-date">
+                              {new Date(inquiry.createdAt).toLocaleDateString('ko-KR', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </span>
+                            <span className={`inquiry-status ${inquiry.status === '답변완료' ? 'completed' : 'pending'}`}>
+                              {inquiry.status}
+                            </span>
+                          </div>
+                          {!inquiry.reply && inquiry.status !== '답변완료' && (
+                            <div className="inquiry-item-header-right">
+                              <button 
+                                className="inquiry-edit-btn"
+                                onClick={() => handleOpenEditInquiryModal(inquiry.id, inquiry.content)}
+                              >
+                                수정
+                              </button>
+                              <button 
+                                className="inquiry-delete-btn"
+                                onClick={() => handleDeleteInquiry(inquiry.id)}
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="inquiry-item-content">{inquiry.content}</div>
+                        {inquiry.reply && (
+                          <div className="inquiry-reply">
+                            <div className="inquiry-reply-header">
+                              <span className="inquiry-reply-label">관리자 답변</span>
+                              <span className="inquiry-reply-date">
+                                {new Date(inquiry.replyDate).toLocaleDateString('ko-KR', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </span>
+                            </div>
+                            <div className="inquiry-reply-content">{inquiry.reply}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 문의 수정 모달 */}
+            {showEditInquiryModal && (
+              <div className="inquiry-modal-overlay" onClick={handleCloseEditInquiryModal}>
+                <div className="inquiry-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="inquiry-modal-header">
+                    <h3>상품 문의 수정</h3>
+                    <button className="inquiry-modal-close" onClick={handleCloseEditInquiryModal}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="inquiry-modal-body">
+                    <div className="inquiry-form-group">
+                      <label>문의 내용</label>
+                      <textarea
+                        value={editingInquiryContent}
+                        onChange={(e) => setEditingInquiryContent(e.target.value)}
+                        placeholder="문의 내용을 입력해주세요"
+                        className="inquiry-content-textarea"
+                        rows="8"
+                      />
+                    </div>
+                  </div>
+                  <div className="inquiry-modal-footer">
+                    <button className="inquiry-modal-btn cancel" onClick={handleCloseEditInquiryModal}>
+                      취소
+                    </button>
+                    <button className="inquiry-modal-btn submit" onClick={handleSubmitEditInquiry}>
+                      수정하기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       case 'coupon':
