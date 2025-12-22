@@ -1,0 +1,450 @@
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { isLoggedIn } from '../utils/cookie';
+import './Signup.css';
+
+function Signup() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    userId: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+    phone: '',
+    agreeTerms: false,
+    agreePrivacy: false,
+    agreeMarketing: false
+  });
+
+  const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [userIdStatus, setUserIdStatus] = useState(null); // 'checking', 'duplicate', 'available'
+  const [passwordMatchStatus, setPasswordMatchStatus] = useState(null); // 'match', 'mismatch', null
+
+  // 중복된 아이디 목록 (실제로는 서버에서 체크)
+  const existingUserIds = ['test@test.com', 'user@example.com', 'admin@admin.com'];
+
+  // 로그인 상태 체크
+  React.useEffect(() => {
+    if (isLoggedIn()) {
+      navigate('/');
+    }
+  }, [navigate]);
+
+  // 아이디 입력 핸들러 (4-20자 제한)
+  const handleUserIdChange = (e) => {
+    let value = e.target.value;
+    // 20자 제한
+    if (value.length > 20) {
+      value = value.slice(0, 20);
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      userId: value
+    }));
+
+    // 에러 초기화
+    if (errors.userId) {
+      setErrors(prev => ({
+        ...prev,
+        userId: ''
+      }));
+    }
+
+    // 아이디 중복 체크 (4자 이상일 때만)
+    if (value.length >= 4) {
+      setUserIdStatus('checking');
+      // 실제로는 API 호출, 여기서는 시뮬레이션
+      setTimeout(() => {
+        if (existingUserIds.includes(value.toLowerCase())) {
+          setUserIdStatus('duplicate');
+          setErrors(prev => ({
+            ...prev,
+            userId: '이미 사용중인 아이디(이메일)입니다.'
+          }));
+        } else {
+          setUserIdStatus('available');
+        }
+      }, 500);
+    } else {
+      setUserIdStatus(null);
+    }
+  };
+
+  // 비밀번호 입력 핸들러 (8-20자 제한)
+  const handlePasswordChange = (e) => {
+    let value = e.target.value;
+    // 20자 제한
+    if (value.length > 20) {
+      value = value.slice(0, 20);
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      password: value
+    }));
+
+    // 에러 초기화
+    if (errors.password) {
+      setErrors(prev => ({
+        ...prev,
+        password: ''
+      }));
+    }
+
+    // 비밀번호 확인과 비교
+    if (formData.confirmPassword) {
+      // 일치 여부만 체크 (유효성과 관계없이)
+      if (value === formData.confirmPassword) {
+        setPasswordMatchStatus('match');
+      } else {
+        setPasswordMatchStatus('mismatch');
+      }
+    } else {
+      setPasswordMatchStatus(null);
+    }
+  };
+
+  // 비밀번호 확인 입력 핸들러
+  const handleConfirmPasswordChange = (e) => {
+    const value = e.target.value;
+    
+    setFormData(prev => ({
+      ...prev,
+      confirmPassword: value
+    }));
+
+    // 에러 초기화
+    if (errors.confirmPassword) {
+      setErrors(prev => ({
+        ...prev,
+        confirmPassword: ''
+      }));
+    }
+
+    // 비밀번호와 비교
+    if (value) {
+      // 일치 여부만 체크 (유효성과 관계없이)
+      if (value === formData.password) {
+        setPasswordMatchStatus('match');
+      } else {
+        setPasswordMatchStatus('mismatch');
+      }
+    } else {
+      setPasswordMatchStatus(null);
+    }
+  };
+
+  // 입력값 변경 핸들러 (일반 필드)
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    // 에러 초기화
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  // 유효성 검사
+  const validate = () => {
+    const newErrors = {};
+
+    // 아이디(이메일) 검사
+    if (!formData.userId) {
+      newErrors.userId = '아이디(이메일)를 입력해주세요.';
+    } else if (formData.userId.length < 4 || formData.userId.length > 20) {
+      newErrors.userId = '아이디(이메일)는 4-20자로 입력해주세요.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.userId)) {
+      newErrors.userId = '올바른 이메일 형식을 입력해주세요.';
+    } else if (userIdStatus === 'duplicate') {
+      newErrors.userId = '이미 사용중인 아이디(이메일)입니다.';
+    }
+
+    // 비밀번호 검사 (영문, 숫자, 특수문자 포함 8-20자)
+    if (!formData.password) {
+      newErrors.password = '비밀번호를 입력해주세요.';
+    } else if (formData.password.length < 8 || formData.password.length > 20) {
+      newErrors.password = '비밀번호는 8-20자로 입력해주세요.';
+    } else {
+      // 영문, 숫자, 특수문자 각각 포함 여부 확인
+      const hasLetter = /[a-zA-Z]/.test(formData.password);
+      const hasNumber = /[0-9]/.test(formData.password);
+      const hasSpecial = /[!@#$%^&*]/.test(formData.password);
+      
+      if (!hasLetter || !hasNumber || !hasSpecial) {
+        newErrors.password = '비밀번호는 영문, 숫자, 특수문자를 모두 포함하여 입력해주세요.';
+      }
+    }
+
+    // 비밀번호 확인
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = '비밀번호 확인을 입력해주세요.';
+    } else {
+      // 비밀번호가 유효한지 먼저 확인
+      const isPasswordValid = formData.password.length >= 8 && 
+                              formData.password.length <= 20 &&
+                              /[a-zA-Z]/.test(formData.password) &&
+                              /[0-9]/.test(formData.password) &&
+                              /[!@#$%^&*]/.test(formData.password);
+      
+      if (!isPasswordValid) {
+        newErrors.confirmPassword = '비밀번호가 유효하지 않습니다.';
+      } else if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = '비밀번호가 일치하지 않습니다.';
+      }
+    }
+
+    // 이름 검사
+    if (!formData.name) {
+      newErrors.name = '이름을 입력해주세요.';
+    } else if (formData.name.length < 2) {
+      newErrors.name = '이름은 2자 이상 입력해주세요.';
+    }
+
+    // 전화번호 검사
+    if (!formData.phone) {
+      newErrors.phone = '전화번호를 입력해주세요.';
+    } else if (!/^010-\d{4}-\d{4}$/.test(formData.phone)) {
+      newErrors.phone = '전화번호는 010-XXXX-XXXX 형식으로 입력해주세요.';
+    }
+
+    // 약관 동의
+    if (!formData.agreeTerms) {
+      newErrors.agreeTerms = '이용약관에 동의해주세요.';
+    }
+    if (!formData.agreePrivacy) {
+      newErrors.agreePrivacy = '개인정보 처리방침에 동의해주세요.';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // 전화번호 자동 포맷팅
+  const handlePhoneChange = (e) => {
+    let value = e.target.value.replace(/[^0-9]/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    
+    if (value.length > 7) {
+      value = value.slice(0, 3) + '-' + value.slice(3, 7) + '-' + value.slice(7);
+    } else if (value.length > 3) {
+      value = value.slice(0, 3) + '-' + value.slice(3);
+    }
+    
+    setFormData(prev => ({ ...prev, phone: value }));
+  };
+
+
+  // 폼 제출
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    if (validate()) {
+      // 회원가입 성공 처리 (실제로는 API 호출)
+      alert('회원가입이 완료되었습니다!');
+      navigate('/login');
+    }
+  };
+
+  return (
+    <div className="signup-container">
+      <div className="signup-box">
+        <div className="signup-header">
+          <h1 className="signup-title">회원가입</h1>
+          <p className="signup-subtitle">Moodly에 오신 것을 환영합니다</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="signup-form">
+          {/* 아이디(이메일) */}
+          <div className="form-group">
+            <label htmlFor="userId" className="form-label">
+              아이디(이메일) <span className="required">*</span>
+            </label>
+            <input
+              type="email"
+              id="userId"
+              name="userId"
+              value={formData.userId}
+              onChange={handleUserIdChange}
+              placeholder="example@email.com"
+              maxLength={20}
+              className={`form-input ${errors.userId || userIdStatus === 'duplicate' ? 'error' : userIdStatus === 'available' ? 'success' : ''}`}
+            />
+            {errors.userId && <span className="error-message">{errors.userId}</span>}
+            {userIdStatus === 'checking' && <span className="checking-message">확인 중...</span>}
+          </div>
+
+          {/* 비밀번호 */}
+          <div className="form-group">
+            <label htmlFor="password" className="form-label">
+              비밀번호 <span className="required">*</span>
+            </label>
+            <div className="password-input-wrapper">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handlePasswordChange}
+                placeholder="영문, 숫자, 특수문자 포함 8-20자"
+                maxLength={20}
+                className={`form-input ${errors.password ? 'error' : ''}`}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
+            </div>
+            {errors.password && <span className="error-message">{errors.password}</span>}
+          </div>
+
+          {/* 비밀번호 확인 */}
+          <div className="form-group">
+            <label htmlFor="confirmPassword" className="form-label">
+              비밀번호 확인 <span className="required">*</span>
+            </label>
+            <div className="password-input-wrapper">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleConfirmPasswordChange}
+                placeholder="비밀번호를 다시 입력해주세요"
+                maxLength={20}
+                className={`form-input ${
+                  errors.confirmPassword || passwordMatchStatus === 'mismatch' ? 'error' : 
+                  passwordMatchStatus === 'match' ? 'success' : ''
+                }`}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
+            </div>
+            {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
+            {passwordMatchStatus === 'match' && formData.confirmPassword && (
+              <span className="success-message">비밀번호가 같습니다.</span>
+            )}
+            {passwordMatchStatus === 'mismatch' && formData.confirmPassword && (
+              <span className="error-message">비밀번호가 다릅니다.</span>
+            )}
+            {passwordMatchStatus === 'match' && formData.confirmPassword && 
+             (formData.password.length < 8 || !/[a-zA-Z]/.test(formData.password) || !/[0-9]/.test(formData.password) || !/[!@#$%^&*]/.test(formData.password)) && (
+              <span className="error-message">비밀번호가 유효하지 않습니다.</span>
+            )}
+          </div>
+
+          {/* 이름 */}
+          <div className="form-group">
+            <label htmlFor="name" className="form-label">
+              이름 <span className="required">*</span>
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="이름을 입력해주세요"
+              className={`form-input ${errors.name ? 'error' : ''}`}
+            />
+            {errors.name && <span className="error-message">{errors.name}</span>}
+          </div>
+
+          {/* 전화번호 */}
+          <div className="form-group">
+            <label htmlFor="phone" className="form-label">
+              전화번호 <span className="required">*</span>
+            </label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handlePhoneChange}
+              placeholder="010-1234-5678"
+              className={`form-input ${errors.phone ? 'error' : ''}`}
+            />
+            {errors.phone && <span className="error-message">{errors.phone}</span>}
+          </div>
+
+          {/* 약관 동의 */}
+          <div className="form-group terms-group">
+            <div className="terms-item">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="agreeTerms"
+                  checked={formData.agreeTerms}
+                  onChange={handleChange}
+                />
+                <span>이용약관 동의 <span className="required">*</span></span>
+              </label>
+              <button type="button" className="terms-link">보기</button>
+            </div>
+            {errors.agreeTerms && <span className="error-message">{errors.agreeTerms}</span>}
+
+            <div className="terms-item">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="agreePrivacy"
+                  checked={formData.agreePrivacy}
+                  onChange={handleChange}
+                />
+                <span>개인정보 처리방침 동의 <span className="required">*</span></span>
+              </label>
+              <button type="button" className="terms-link">보기</button>
+            </div>
+            {errors.agreePrivacy && <span className="error-message">{errors.agreePrivacy}</span>}
+
+            <div className="terms-item">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="agreeMarketing"
+                  checked={formData.agreeMarketing}
+                  onChange={handleChange}
+                />
+                <span>마케팅 정보 수신 동의 (선택)</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 제출 버튼 */}
+          <button type="submit" className="signup-submit-button">
+            회원가입
+          </button>
+
+          {/* 로그인 링크 */}
+          <div className="signup-footer">
+            <p>
+              이미 계정이 있으신가요?{' '}
+              <Link to="/login" className="login-link">
+                로그인
+              </Link>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default Signup;
+

@@ -1,0 +1,245 @@
+.hotdeal-detail-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  min-height: calc(100vh - 200px);
+}
+
+.hotdeal-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+
+.hotdeal-detail-back-btn {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.hotdeal-detail-back-btn:hover {
+  background-color: #2980b9;
+  transform: translateX(-3px);
+}
+
+.hotdeal-detail-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0;
+  position: relative;
+  padding-left: 1rem;
+}
+
+.hotdeal-detail-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  border-radius: 2px;
+}
+
+.hotdeal-detail-products-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.hotdeal-detail-product-card {
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  border: 3px solid transparent;
+}
+
+.hotdeal-detail-product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.hotdeal-detail-product-card.hotdeal-detail-product-selected {
+  border: 3px solid #e74c3c;
+  box-shadow: 0 4px 20px rgba(231, 76, 60, 0.4);
+  transform: translateY(-5px);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(231, 76, 60, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 25px rgba(231, 76, 60, 0.6);
+  }
+}
+
+.hotdeal-detail-number-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.4);
+}
+
+.hotdeal-detail-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  z-index: 10;
+  font-weight: bold;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+}
+
+.hotdeal-detail-discount {
+  display: block;
+}
+
+.hotdeal-detail-image-container {
+  width: 100%;
+  height: 250px;
+  overflow: hidden;
+  background-color: #f8f9fa;
+  position: relative;
+}
+
+.hotdeal-detail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.hotdeal-detail-product-card:hover .hotdeal-detail-image {
+  transform: scale(1.05);
+}
+
+.hotdeal-detail-info {
+  padding: 1.5rem;
+}
+
+.hotdeal-detail-product-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.4;
+}
+
+.hotdeal-detail-price-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hotdeal-detail-original-price {
+  font-size: 0.85rem;
+  color: #95a5a6;
+  text-decoration: line-through;
+}
+
+.hotdeal-detail-sale-price {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+
+/* 반응형 디자인 */
+@media (max-width: 1024px) {
+  .hotdeal-detail-products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .hotdeal-detail-container {
+    padding: 1.5rem 1rem;
+  }
+
+  .hotdeal-detail-title {
+    font-size: 1.8rem;
+  }
+
+  .hotdeal-detail-products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .hotdeal-detail-image-container {
+    height: 200px;
+  }
+
+  .hotdeal-detail-product-name {
+    font-size: 1.1rem;
+  }
+
+  .hotdeal-detail-sale-price {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hotdeal-detail-container {
+    padding: 1rem;
+  }
+
+  .hotdeal-detail-title {
+    font-size: 1.5rem;
+  }
+
+  .hotdeal-detail-products-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .hotdeal-detail-image-container {
+    height: 200px;
+  }
+
+  .hotdeal-detail-product-name {
+    font-size: 1rem;
+  }
+
+  .hotdeal-detail-sale-price {
+    font-size: 1.1rem;
+  }
+
+  .hotdeal-detail-badge {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+}
+
