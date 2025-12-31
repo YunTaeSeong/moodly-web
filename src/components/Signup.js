@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
-import { addUser } from '../utils/user';
+import { registerUser } from '../utils/api';
 import './Signup.css';
 
 function Signup() {
@@ -20,8 +20,8 @@ function Signup() {
   const [userIdStatus, setUserIdStatus] = useState(null); // 'checking', 'duplicate', 'available'
   const [passwordMatchStatus, setPasswordMatchStatus] = useState(null); // 'match', 'mismatch', null
 
-  // 중복된 아이디 목록 (실제로는 서버에서 체크)
-  const existingUserIds = ['test@test.com', 'user@example.com', 'admin@admin.com'];
+  // 아이디 중복 체크를 위한 상태
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   // 로그인 상태 체크
   React.useEffect(() => {
@@ -51,21 +51,9 @@ function Signup() {
       }));
     }
 
-    // 아이디 중복 체크 (4자 이상일 때만)
-    if (value.length >= 4) {
-      setUserIdStatus('checking');
-      // 실제로는 API 호출, 여기서는 시뮬레이션
-      setTimeout(() => {
-        if (existingUserIds.includes(value.toLowerCase())) {
-          setUserIdStatus('duplicate');
-          setErrors(prev => ({
-            ...prev,
-            userId: '이미 사용중인 아이디(이메일)입니다.'
-          }));
-        } else {
-          setUserIdStatus('available');
-        }
-      }, 500);
+    // 아이디 중복 체크는 서버에서 처리하므로 여기서는 유효성만 확인
+    if (value.length >= 4 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setUserIdStatus('available');
     } else {
       setUserIdStatus(null);
     }
@@ -234,23 +222,57 @@ function Signup() {
 
 
   // 폼 제출
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (validate()) {
-      // 회원가입 처리
-      const result = addUser({
-        userId: formData.userId,
-        password: formData.password,
-        name: formData.name,
-        phone: formData.phone
-      });
-      
-      if (result.success) {
-        window.alert('회원가입이 완료되었습니다!');
-        navigate('/login');
-      } else {
-        window.alert(result.message || '회원가입에 실패했습니다.');
+      try {
+        setIsCheckingDuplicate(true);
+        // API 호출
+        const result = await registerUser({
+          email: formData.userId,
+          password: formData.password,
+          rePassword: formData.confirmPassword,
+          name: formData.name,
+          phoneNumber: formData.phone
+        });
+        
+        if (result.success) {
+          window.alert('회원가입이 완료되었습니다!');
+          navigate('/');
+        } else {
+          // 에러 메시지 처리
+          let errorMessage = result.message || '회원가입에 실패했습니다.';
+          
+          // 중복 이메일 에러 처리
+          if (result.status === 400 || result.message?.includes('중복') || result.message?.includes('이미 사용')) {
+            setErrors(prev => ({
+              ...prev,
+              userId: '이미 사용중인 아이디(이메일)입니다.'
+            }));
+            setUserIdStatus('duplicate');
+            errorMessage = '이미 사용중인 아이디(이메일)입니다.';
+          }
+          
+          window.alert(errorMessage);
+        }
+      } catch (error) {
+        console.error('회원가입 오류:', error);
+        let errorMessage = '회원가입에 실패했습니다.';
+        
+        if (error.status === 400) {
+          errorMessage = error.message || '입력 정보를 확인해주세요.';
+        } else if (error.status === 0) {
+          errorMessage = error.message || '서버에 연결할 수 없습니다. 백엔드 서버(http://localhost:8082)가 실행 중인지 확인해주세요.';
+          console.error('원본 에러:', error.originalError);
+          console.error('전체 에러 객체:', error);
+        } else if (error.status) {
+          errorMessage = error.message || `서버 오류가 발생했습니다. (${error.status})`;
+        }
+        
+        window.alert(errorMessage);
+      } finally {
+        setIsCheckingDuplicate(false);
       }
     }
   };
@@ -385,8 +407,12 @@ function Signup() {
           </div>
 
           {/* 제출 버튼 */}
-          <button type="submit" className="signup-submit-button">
-            회원가입
+          <button 
+            type="submit" 
+            className="signup-submit-button"
+            disabled={isCheckingDuplicate}
+          >
+            {isCheckingDuplicate ? '처리 중...' : '회원가입'}
           </button>
 
           {/* 로그인 링크 */}
