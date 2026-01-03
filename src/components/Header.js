@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, deleteCookie, getCookie, isAdmin } from '../utils/cookie';
+import { logout as authLogout } from '../utils/authApi';
 import { allProducts } from '../utils/products';
 import { getNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications } from '../utils/notification';
 import CategorySidebar from './CategorySidebar';
@@ -142,11 +143,34 @@ function Header() {
     navigate('/login');
   };
 
-  const handleLogoutClick = () => {
-    deleteCookie('isLoggedIn');
-    deleteCookie('username');
-    setLoggedIn(false);
-    navigate('/');
+  const handleLogoutClick = async () => {
+    try {
+      // auth-service의 logout API 호출 및 토큰 삭제
+      await authLogout();
+      
+      // 쿠키도 삭제 (기존 코드 호환성)
+      deleteCookie('isLoggedIn');
+      deleteCookie('username');
+      deleteCookie('userEmail');
+      
+      // 로그인 상태 업데이트
+      setLoggedIn(false);
+      
+      // 홈으로 이동
+      navigate('/');
+      
+      // 페이지 새로고침하여 모든 상태 초기화
+      window.location.reload();
+    } catch (error) {
+      console.error('로그아웃 중 오류:', error);
+      // 에러가 발생해도 로그아웃 처리
+      deleteCookie('isLoggedIn');
+      deleteCookie('username');
+      deleteCookie('userEmail');
+      setLoggedIn(false);
+      navigate('/');
+      window.location.reload();
+    }
   };
 
   return (

@@ -156,7 +156,7 @@ export const login = async (email, password) => {
       // 서버가 응답했지만 에러 상태
       const status = error.response.status;
       if (status === 500) {
-        errorMessage = `서버 내부 오류가 발생했습니다. (${status})\n백엔드 로그를 확인해주세요.`;
+        errorMessage = `아이디 또는 비밀번호가 올바르지 않습니다.`;
       } else if (status === 401) {
         errorMessage = error.response.data?.message || '아이디 또는 비밀번호가 올바르지 않습니다.';
       } else {
@@ -211,9 +211,31 @@ export const refreshToken = async () => {
 };
 
 // 로그아웃
-export const logout = () => {
-  clearTokens();
-  window.location.href = '/login';
+export const logout = async () => {
+  try {
+    const refreshToken = getRefreshToken();
+    
+    // refresh token이 있으면 서버에 로그아웃 요청
+    if (refreshToken) {
+      try {
+        await authApi.post('/auth/logout', {}, {
+          headers: {
+            'X-Refresh-Token': refreshToken
+          }
+        });
+      } catch (error) {
+        // 로그아웃 API 실패해도 클라이언트에서는 토큰 삭제
+        console.error('로그아웃 API 호출 실패:', error);
+      }
+    }
+    
+    // 클라이언트에서 토큰 삭제
+    clearTokens();
+  } catch (error) {
+    console.error('로그아웃 중 오류:', error);
+    // 에러가 발생해도 토큰은 삭제
+    clearTokens();
+  }
 };
 
 // authApi export (다른 곳에서 사용할 수 있도록)
