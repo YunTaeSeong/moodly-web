@@ -1,5 +1,7 @@
 // 쿠키 관리 유틸리티 함수
 
+import { hasTokens } from './token';
+
 export const setCookie = (name, value, days = 7) => {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
@@ -22,6 +24,11 @@ export const deleteCookie = (name) => {
 };
 
 export const isLoggedIn = () => {
+  // 토큰 기반 로그인 상태 확인 (우선)
+  if (hasTokens()) {
+    return true;
+  }
+  // 기존 쿠키 기반 로그인 상태 확인 (하위 호환성)
   return getCookie('isLoggedIn') === 'true';
 };
 

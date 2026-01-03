@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { setCookie } from '../utils/cookie';
 import { authenticateUser, findUserId, findPassword } from '../utils/user';
+import { login } from '../utils/authApi';
+import { hasTokens } from '../utils/token';
 import './Login.css';
 
 function Login() {
@@ -19,11 +21,11 @@ function Login() {
   const [findResult, setFindResult] = useState(null);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // 기존 테스트 계정 체크
+    // 기존 테스트 계정 체크 (하위 호환성 유지)
     if (username === 'test' && password === 'test') {
       setCookie('isLoggedIn', 'true', 7);
       setCookie('username', username, 7);
@@ -38,15 +40,36 @@ function Login() {
       return;
     }
 
-    // 회원가입한 사용자 체크
-    const user = authenticateUser(username, password);
-    if (user) {
+    // 로컬 스토리지 기반 사용자 체크 (하위 호환성 유지)
+    const localUser = authenticateUser(username, password);
+    if (localUser) {
       setCookie('isLoggedIn', 'true', 7);
-      setCookie('username', user.name, 7);
-      setCookie('userEmail', user.userId, 7);
+      setCookie('username', localUser.name, 7);
+      setCookie('userEmail', localUser.userId, 7);
       navigate('/');
-    } else {
-      setError('아이디 또는 비밀번호가 올바르지 않습니다.');
+      return;
+    }
+
+    // Auth Service를 통한 로그인
+    try {
+      const result = await login(username, password);
+      
+      if (result.success) {
+        // 로그인 성공 - 토큰은 authApi에서 자동으로 저장됨
+        // 쿠키도 설정 (기존 코드 호환성)
+        setCookie('isLoggedIn', 'true', 7);
+        setCookie('userEmail', username, 7);
+        
+        navigate('/');
+      } else {
+        // 에러 메시지 표시
+        const errorMsg = result.message || '아이디 또는 비밀번호가 올바르지 않습니다.';
+        setError(errorMsg);
+        console.error('로그인 실패:', result);
+      }
+    } catch (error) {
+      console.error('로그인 예외 발생:', error);
+      setError('로그인 중 예기치 않은 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };
 
