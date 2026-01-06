@@ -109,3 +109,76 @@ export const registerUser = async (userData) => {
   }
 };
 
+// 아이디 찾기 - 인증코드 요청
+export const requestFindId = async (name, phoneNumber) => {
+  try {
+    const response = await apiCall('/user/find-id/request', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: name,
+        phoneNumber: phoneNumber
+      }),
+    });
+    
+    return { 
+      success: true, 
+      maskedEmail: response.maskedEmail 
+    };
+  } catch (error) {
+    return { 
+      success: false, 
+      message: error.message || '아이디 찾기에 실패했습니다.',
+      status: error.status
+    };
+  }
+};
+
+// 이메일 마스킹 함수 (백엔드 EmailMasking과 동일한 로직)
+const maskEmail = (email) => {
+  if (!email || !email.includes('@')) return email;
+  const [local, domain] = email.split('@');
+  
+  if (local.length <= 2) {
+    return local.charAt(0) + '*' + '@' + domain;
+  }
+  
+  const prefix = local.substring(0, 2);
+  const mask = '*'.repeat(local.length - 2);
+  return prefix + mask + '@' + domain;
+};
+
+// 아이디 찾기 - 인증코드 확인
+export const confirmFindId = async (code, phoneNumber) => {
+  try {
+    const response = await apiCall('/user/find-id/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        code: code,
+        phoneNumber: phoneNumber
+      }),
+    });
+    
+    // 백엔드에서 반환된 이메일을 마스킹 처리
+    const maskedEmail = maskEmail(response.maskedEmail);
+    
+    return { 
+      success: true, 
+      maskedEmail: maskedEmail
+    };
+  } catch (error) {
+    let errorMessage = '올바르지 않은 코드입니다.';
+    
+    if (error.status === 400 || error.status === 404) {
+      errorMessage = '올바르지 않은 코드입니다.';
+    } else if (error.message && !error.message.includes('요청에 실패했습니다')) {
+      errorMessage = error.message;
+    }
+    
+    return { 
+      success: false, 
+      message: errorMessage,
+      status: error.status
+    };
+  }
+};
+
