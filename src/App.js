@@ -48,6 +48,12 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/mypage" element={<MyPage />} />
+            <Route path="/mypage/security" element={<MyPage />} />
+            <Route path="/mypage/orders" element={<MyPage />} />
+            <Route path="/mypage/wishlist" element={<MyPage />} />
+            <Route path="/mypage/reviews" element={<MyPage />} />
+            <Route path="/mypage/inquiries" element={<MyPage />} />
+            <Route path="/mypage/coupons" element={<MyPage />} />
             <Route path="/hotdeal" element={<HotDealDetail />} />
             <Route path="/todayspecial" element={<TodaySpecialDetail />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />

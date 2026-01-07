@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
 import { getAvailableCoupons, getReceivedCoupons, receiveCoupon, checkCouponExpiry } from '../utils/coupon';
@@ -13,8 +13,22 @@ import './MyPage.css';
 
 function MyPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [activeMenu, setActiveMenu] = useState(searchParams.get('menu') || 'home');
+  const location = useLocation();
+  
+  // URL 경로에서 메뉴 추출
+  const getMenuFromPath = () => {
+    const path = location.pathname;
+    if (path === '/mypage') return 'home';
+    if (path === '/mypage/security') return 'security';
+    if (path === '/mypage/orders') return 'orders';
+    if (path === '/mypage/wishlist') return 'wishlist';
+    if (path === '/mypage/reviews') return 'review'; // 경로는 reviews지만 메뉴 ID는 review
+    if (path === '/mypage/inquiries') return 'inquiry'; // 경로는 inquiries지만 메뉴 ID는 inquiry
+    if (path === '/mypage/coupons') return 'coupon';
+    return 'home'; // 기본값
+  };
+  
+  const [activeMenu, setActiveMenu] = useState(getMenuFromPath());
   const [wishlist, setWishlist] = useState([]);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [receivedCoupons, setReceivedCoupons] = useState([]);
@@ -76,13 +90,11 @@ function MyPage() {
     }
   }, [activeMenu]);
 
-  // URL 쿼리 파라미터로 메뉴 변경
+  // URL 경로 변경 시 메뉴 업데이트
   useEffect(() => {
-    const menuParam = searchParams.get('menu');
-    if (menuParam) {
-      setActiveMenu(menuParam);
-    }
-  }, [searchParams]);
+    const menu = getMenuFromPath();
+    setActiveMenu(menu);
+  }, [location.pathname]);
 
   // 쿠폰 목록 가져오기
   useEffect(() => {
@@ -348,6 +360,26 @@ function MyPage() {
     );
   }
 
+  // 메뉴 ID를 경로로 변환
+  const getPathFromMenuId = (menuId) => {
+    const pathMap = {
+      'security': '/mypage/security',
+      'home': '/mypage',
+      'orders': '/mypage/orders',
+      'wishlist': '/mypage/wishlist',
+      'review': '/mypage/reviews',
+      'inquiry': '/mypage/inquiries',
+      'coupon': '/mypage/coupons'
+    };
+    return pathMap[menuId] || '/mypage';
+  };
+
+  // 메뉴 클릭 핸들러
+  const handleMenuClick = (menuId) => {
+    const path = getPathFromMenuId(menuId);
+    navigate(path);
+  };
+
   const menuItems = [
     { id: 'security', label: '보안설정' },
     { id: 'home', label: '마이쇼핑 홈' },
@@ -510,21 +542,21 @@ function MyPage() {
             <div className="mypage-summary">
               <div 
                 className="summary-card summary-card-clickable"
-                onClick={() => setActiveMenu('orders')}
+                onClick={() => navigate('/mypage/orders')}
               >
                 <h3>주문 내역</h3>
                 <p className="summary-count">{orderCount}건</p>
               </div>
               <div 
                 className="summary-card summary-card-clickable"
-                onClick={() => setActiveMenu('wishlist')}
+                onClick={() => navigate('/mypage/wishlist')}
               >
                 <h3>찜한 상품</h3>
                 <p className="summary-count">{wishlist.length}개</p>
               </div>
               <div 
                 className="summary-card summary-card-clickable"
-                onClick={() => setActiveMenu('inquiry')}
+                onClick={() => navigate('/mypage/inquiries')}
               >
                 <h3>상품 문의</h3>
                 <p className="summary-count">{inquiryCount}건</p>
@@ -976,7 +1008,7 @@ function MyPage() {
               <li key={item.id}>
                 <button
                   className={`mypage-menu-item ${activeMenu === item.id ? 'active' : ''}`}
-                  onClick={() => setActiveMenu(item.id)}
+                  onClick={() => handleMenuClick(item.id)}
                 >
                   {item.label}
                 </button>
