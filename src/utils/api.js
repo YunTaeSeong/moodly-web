@@ -53,9 +53,29 @@ export const apiCall = async (endpoint, options = {}) => {
       };
     }
 
-    const data = await response.json();
-    console.log('응답 데이터:', data);
-    return data;
+    // 204 No Content 응답 처리
+    if (response.status === 204) {
+      console.log('204 No Content 응답');
+      return null;
+    }
+
+    // 응답 본문이 있는 경우에만 JSON 파싱
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const text = await response.text();
+      if (text && text.trim()) {
+        try {
+          const data = JSON.parse(text);
+          console.log('응답 데이터:', data);
+          return data;
+        } catch (parseError) {
+          console.error('JSON 파싱 오류:', parseError);
+          return null;
+        }
+      }
+    }
+    
+    return null;
   } catch (error) {
     console.error('API 호출 에러:', error);
     console.error('에러 타입:', error.constructor.name);
@@ -170,6 +190,79 @@ export const confirmFindId = async (code, phoneNumber) => {
     
     if (error.status === 400 || error.status === 404) {
       errorMessage = '올바르지 않은 코드입니다.';
+    } else if (error.message && !error.message.includes('요청에 실패했습니다')) {
+      errorMessage = error.message;
+    }
+    
+    return { 
+      success: false, 
+      message: errorMessage,
+      status: error.status
+    };
+  }
+};
+
+// 비밀번호 재설정 요청 (이메일로 링크 발송)
+export const requestPasswordReset = async (email) => {
+  try {
+    const response = await apiCall('/user/password/reset/request', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId: null, // 백엔드에서 email로 사용자를 찾으므로 null
+        email: email
+      }),
+    });
+    
+    // 204 No Content 응답은 성공으로 처리
+    // 백엔드에서 사용자를 찾지 못해도 204를 반환하므로,
+    // 보안을 위해 항상 성공 메시지를 표시
+    return { 
+      success: true
+    };
+  } catch (error) {
+    let errorMessage = '올바르지 않은 이메일입니다.';
+    
+    if (error.status === 400) {
+      errorMessage = '올바르지 않은 이메일입니다.';
+    } else if (error.status === 404) {
+      errorMessage = '올바르지 않은 이메일입니다.';
+    } else if (error.message && error.message.includes('Unexpected end of JSON')) {
+      // 204 응답 처리 중 발생한 JSON 파싱 에러는 성공으로 처리
+      return { success: true };
+    } else if (error.message && !error.message.includes('요청에 실패했습니다')) {
+      errorMessage = error.message;
+    }
+    
+    return { 
+      success: false, 
+      message: errorMessage,
+      status: error.status
+    };
+  }
+};
+
+// 비밀번호 재설정 확인 (토큰으로 비밀번호 변경)
+export const confirmPasswordReset = async (token, newPassword, rePassword) => {
+  try {
+    await apiCall('/user/password/reset/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        token: token,
+        newPassword: newPassword,
+        rePassword: rePassword
+      }),
+    });
+    
+    return { 
+      success: true
+    };
+  } catch (error) {
+    let errorMessage = '비밀번호 재설정에 실패했습니다.';
+    
+    if (error.status === 400) {
+      errorMessage = '비밀번호가 일치하지 않습니다.';
+    } else if (error.status === 404 || error.status === 410) {
+      errorMessage = '링크가 만료되었거나 유효하지 않습니다.';
     } else if (error.message && !error.message.includes('요청에 실패했습니다')) {
       errorMessage = error.message;
     }

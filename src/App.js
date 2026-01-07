@@ -14,6 +14,7 @@ import PaymentSuccess from './components/PaymentSuccess';
 import PaymentFail from './components/PaymentFail';
 import HotDealDetail from './components/HotDealDetail';
 import TodaySpecialDetail from './components/TodaySpecialDetail';
+import ResetPassword from './components/ResetPassword';
 import { isLoggedIn } from './utils/cookie';
 import './App.css';
 
@@ -44,6 +45,7 @@ function App() {
             <Route path="/category/:id" element={<CategoryDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/mypage" element={<MyPage />} />
             <Route path="/hotdeal" element={<HotDealDetail />} />

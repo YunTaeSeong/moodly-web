@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { setCookie } from '../utils/cookie';
 import { authenticateUser, findPassword } from '../utils/user';
 import { login } from '../utils/authApi';
-import { requestFindId, confirmFindId } from '../utils/api';
+import { requestFindId, confirmFindId, requestPasswordReset } from '../utils/api';
 import { hasTokens } from '../utils/token';
 import './Login.css';
 
@@ -204,26 +204,45 @@ function Login() {
     }
   };
 
-  // 비밀번호 찾기
-  const handleFindPassword = (e) => {
+  // 비밀번호 찾기 (이메일로 재설정 링크 발송)
+  const handleFindPassword = async (e) => {
     e.preventDefault();
     setFindError('');
     setFindResult(null);
 
-    if (!findFormData.userId || !findFormData.name || !findFormData.phone) {
-      setFindError('모든 정보를 입력해주세요.');
+    if (!findFormData.userId) {
+      setFindError('이메일을 입력해주세요.');
       return;
     }
 
-    const result = findPassword(findFormData.userId, findFormData.name, findFormData.phone);
-    if (result.success) {
-      setFindResult({
-        type: 'password',
-        message: `임시 비밀번호가 발급되었습니다.`,
-        tempPassword: result.tempPassword
-      });
-    } else {
-      setFindError(result.message);
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(findFormData.userId)) {
+      setFindError('올바르지 않은 이메일입니다.');
+      return;
+    }
+
+    try {
+      const result = await requestPasswordReset(findFormData.userId);
+      if (result.success) {
+        setFindResult({
+          type: 'password',
+          message: `비밀번호 재설정 링크가 이메일로 발송되었습니다.\n이메일을 확인해주세요.`
+        });
+      } else {
+        setFindError(result.message || '올바르지 않은 이메일입니다.');
+      }
+    } catch (error) {
+      console.error('비밀번호 찾기 오류:', error);
+      // JSON 파싱 에러는 204 응답일 수 있으므로 성공으로 처리
+      if (error.message && error.message.includes('Unexpected end of JSON')) {
+        setFindResult({
+          type: 'password',
+          message: `비밀번호 재설정 링크가 이메일로 발송되었습니다.\n이메일을 확인해주세요.`
+        });
+      } else {
+        setFindError('올바르지 않은 이메일입니다.');
+      }
     }
   };
 
@@ -418,57 +437,18 @@ function Login() {
                       </div>
                     </>
                   ) : (
-                    // 비밀번호 찾기
+                    // 비밀번호 찾기 (이메일만 입력)
                     <>
                       <div className="form-group">
                         <label htmlFor="findUserId" className="form-label">
-                          아이디(이메일) <span className="required">*</span>
+                          이메일(아이디) <span className="required">*</span>
                         </label>
                         <input
                           type="email"
                           id="findUserId"
                           value={findFormData.userId}
                           onChange={(e) => setFindFormData({ ...findFormData, userId: e.target.value })}
-                          placeholder="아이디(이메일)를 입력하세요"
-                          className="form-input"
-                          required
-                        />
-                      </div>
-                      
-                      <div className="form-group">
-                        <label htmlFor="findName" className="form-label">
-                          이름 <span className="required">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          id="findName"
-                          value={findFormData.name}
-                          onChange={(e) => setFindFormData({ ...findFormData, name: e.target.value })}
-                          placeholder="이름을 입력하세요"
-                          className="form-input"
-                          required
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label htmlFor="findPhone" className="form-label">
-                          전화번호 <span className="required">*</span>
-                        </label>
-                        <input
-                          type="tel"
-                          id="findPhone"
-                          value={findFormData.phone}
-                          onChange={(e) => {
-                            let value = e.target.value.replace(/[^0-9]/g, '');
-                            if (value.length > 11) value = value.slice(0, 11);
-                            if (value.length > 7) {
-                              value = value.slice(0, 3) + '-' + value.slice(3, 7) + '-' + value.slice(7);
-                            } else if (value.length > 3) {
-                              value = value.slice(0, 3) + '-' + value.slice(3);
-                            }
-                            setFindFormData({ ...findFormData, phone: value });
-                          }}
-                          placeholder="010-1234-5678"
+                          placeholder="이메일(아이디)를 입력하세요"
                           className="form-input"
                           required
                         />
@@ -481,7 +461,7 @@ function Login() {
                           취소
                         </button>
                         <button type="submit" className="find-modal-btn submit">
-                          찾기
+                          재설정 링크 발송
                         </button>
                       </div>
                     </>
@@ -523,14 +503,27 @@ function Login() {
                   {findResult.type === 'password' && (
                     <div className="find-result-password">
                       <div className="temp-password-box">
-                        <strong>임시 비밀번호:</strong>
-                        <div className="temp-password">{findResult.tempPassword}</div>
-                        <p className="temp-password-warning">
-                          ⚠️ 보안을 위해 로그인 후 비밀번호를 변경해주세요.
-                        </p>
-                        <p className="temp-password-info">
-                          비밀번호 변경은 마이페이지 → 보안설정에서 할 수 있습니다.
-                        </p>
+                        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                          <div style={{ fontSize: '48px', marginBottom: '15px' }}>📧</div>
+                          <h3 style={{ marginBottom: '15px', color: '#333' }}>이메일을 확인해주세요</h3>
+                          <p style={{ color: '#666', lineHeight: '1.6', marginBottom: '20px' }}>
+                            비밀번호 재설정 링크가 이메일로 발송되었습니다.
+                            <br />
+                            이메일의 링크를 클릭하여 비밀번호를 재설정하세요.
+                          </p>
+                          <div style={{ 
+                            padding: '15px', 
+                            backgroundColor: '#f8f9fa', 
+                            borderRadius: '5px',
+                            marginTop: '20px'
+                          }}>
+                            <p style={{ fontSize: '12px', color: '#999', margin: 0 }}>
+                              💡 이메일이 보이지 않는다면 스팸함을 확인해주세요.
+                              <br />
+                              ※ 링크는 15분간 유효합니다.
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
