@@ -34,3 +34,24 @@ export const hasTokens = () => {
   return !!getAccessToken() && !!getRefreshToken();
 };
 
+// JWT 토큰에서 userId 추출
+export const getUserIdFromToken = () => {
+  try {
+    const token = getAccessToken();
+    if (!token) return null;
+    
+    // JWT는 base64로 인코딩된 3부분으로 구성: header.payload.signature
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    // payload 디코딩
+    const payload = JSON.parse(atob(parts[1]));
+    
+    // JWT의 subject(sub)가 userId (문자열로 저장되어 있음)
+    return payload.sub ? parseInt(payload.sub, 10) : null;
+  } catch (error) {
+    console.error('JWT 토큰 파싱 오류:', error);
+    return null;
+  }
+};
+

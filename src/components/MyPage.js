@@ -8,7 +8,10 @@ import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from 
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
-import { changePassword } from '../utils/user';
+import { changeMyPassword } from '../utils/api';
+import { getUserIdFromToken } from '../utils/token';
+import { logout } from '../utils/authApi';
+import { deleteCookie } from '../utils/cookie';
 import './MyPage.css';
 
 function MyPage() {
@@ -391,7 +394,7 @@ function MyPage() {
   ];
 
   // 비밀번호 변경 핸들러
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
     setPasswordErrors({});
     setPasswordSuccess(false);
@@ -424,26 +427,49 @@ function MyPage() {
       return;
     }
 
-    // 비밀번호 변경 실행
-    const userEmail = getCookie('userEmail') || '';
-    const result = changePassword(
-      userEmail,
-      passwordForm.currentPassword,
-      passwordForm.newPassword
-    );
+    // JWT 토큰에서 userId 추출
+    const userId = getUserIdFromToken();
+    if (!userId) {
+      setPasswordErrors({ submit: '로그인 정보를 확인할 수 없습니다. 다시 로그인해주세요.' });
+      return;
+    }
 
-    if (result.success) {
-      setPasswordSuccess(true);
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-      setTimeout(() => {
-        setPasswordSuccess(false);
-      }, 3000);
-    } else {
-      setPasswordErrors({ submit: result.message });
+    try {
+      // 비밀번호 변경 API 호출
+      const result = await changeMyPassword(
+        userId,
+        passwordForm.currentPassword,
+        passwordForm.newPassword,
+        passwordForm.confirmPassword
+      );
+
+      if (result.success) {
+        setPasswordSuccess(true);
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+        
+        // 비밀번호 변경 성공 후 로그아웃 처리
+        // 백엔드에서 이미 refresh token을 모두 삭제했으므로, 클라이언트에서만 정리
+        setTimeout(async () => {
+          // 로그아웃 처리 (서버의 refresh token은 이미 삭제됨)
+          await logout();
+          deleteCookie('isLoggedIn');
+          deleteCookie('userEmail');
+          deleteCookie('username');
+          
+          // 로그인 페이지로 이동
+          window.alert('비밀번호가 변경되었습니다. 다시 로그인해주세요.');
+          navigate('/login');
+        }, 2000);
+      } else {
+        setPasswordErrors({ submit: result.message || '비밀번호 변경에 실패했습니다.' });
+      }
+    } catch (error) {
+      console.error('비밀번호 변경 오류:', error);
+      setPasswordErrors({ submit: error.message || '비밀번호 변경 중 오류가 발생했습니다.' });
     }
   };
 

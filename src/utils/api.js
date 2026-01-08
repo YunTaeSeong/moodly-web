@@ -1,4 +1,5 @@
 // API 호출 유틸리티
+import { getAccessToken } from './token';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8082';
 
@@ -263,6 +264,44 @@ export const confirmPasswordReset = async (token, newPassword, rePassword) => {
       errorMessage = '비밀번호가 일치하지 않습니다.';
     } else if (error.status === 404 || error.status === 410) {
       errorMessage = '링크가 만료되었거나 유효하지 않습니다.';
+    } else if (error.message && !error.message.includes('요청에 실패했습니다')) {
+      errorMessage = error.message;
+    }
+    
+    return { 
+      success: false, 
+      message: errorMessage,
+      status: error.status
+    };
+  }
+};
+
+// 비밀번호 변경 (마이페이지 -> 보안설정)
+export const changeMyPassword = async (userId, currentPassword, newPassword, newPasswordConfirm) => {
+  try {
+    await apiCall('/user/mypage/security/changePassword', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        userId: userId,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        newPasswordConfirm: newPasswordConfirm
+      }),
+      headers: {
+        'Authorization': `Bearer ${getAccessToken()}`
+      }
+    });
+    
+    return { 
+      success: true
+    };
+  } catch (error) {
+    let errorMessage = '비밀번호 변경에 실패했습니다.';
+    
+    if (error.status === 400) {
+      errorMessage = '현재 비밀번호가 일치하지 않거나, 새 비밀번호가 일치하지 않습니다.';
+    } else if (error.status === 401) {
+      errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
     } else if (error.message && !error.message.includes('요청에 실패했습니다')) {
       errorMessage = error.message;
     }
