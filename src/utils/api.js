@@ -2,6 +2,7 @@
 import { getAccessToken } from './token';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8082';
+const PRODUCT_API_BASE_URL = process.env.REACT_APP_PRODUCT_API_BASE_URL || 'http://localhost:8083';
 
 // API 호출 기본 함수
 export const apiCall = async (endpoint, options = {}) => {
@@ -314,3 +315,113 @@ export const changeMyPassword = async (userId, currentPassword, newPassword, new
   }
 };
 
+// 상품 검색 (자동완성용)
+export const searchProducts = async (keyword) => {
+  try {
+    if (!keyword || keyword.trim() === '') {
+      return { success: true, data: [] };
+    }
+
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/search?keyword=${encodeURIComponent(keyword.trim())}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return { success: true, data: [] }; // 에러 시 빈 배열 반환
+    }
+
+    const data = await response.json();
+    return { 
+      success: true, 
+      data: data || [] 
+    };
+  } catch (error) {
+    console.error('상품 검색 오류:', error);
+    return { 
+      success: true, 
+      data: [] // 에러 시 빈 배열 반환
+    };
+  }
+};
+
+// 상품 목록 조회 (전체 또는 카테고리별)
+export const getAllProducts = async (categoryId = null) => {
+  try {
+    const url = categoryId 
+      ? `${PRODUCT_API_BASE_URL}/product?categoryId=${categoryId}`
+      : `${PRODUCT_API_BASE_URL}/product`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return { 
+        success: false, 
+        message: '상품 목록 조회에 실패했습니다.',
+        status: response.status,
+        data: []
+      };
+    }
+
+    const data = await response.json();
+    return { 
+      success: true, 
+      data: data || []
+    };
+  } catch (error) {
+    console.error('상품 목록 조회 오류:', error);
+    return { 
+      success: false, 
+      message: '상품 목록 조회 중 오류가 발생했습니다.',
+      status: 0,
+      data: []
+    };
+  }
+};
+
+// 상품 상세 조회
+export const getProductById = async (productId) => {
+  try {
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/${productId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { 
+          success: false, 
+          message: '상품을 찾을 수 없습니다.',
+          status: 404
+        };
+      }
+      return { 
+        success: false, 
+        message: '상품 조회에 실패했습니다.',
+        status: response.status
+      };
+    }
+
+    const data = await response.json();
+    return { 
+      success: true, 
+      data: data
+    };
+  } catch (error) {
+    console.error('상품 조회 오류:', error);
+    return { 
+      success: false, 
+      message: '상품 조회 중 오류가 발생했습니다.',
+      status: 0
+    };
+  }
+};

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, deleteCookie, getCookie, isAdmin } from '../utils/cookie';
 import { logout as authLogout } from '../utils/authApi';
 import { allProducts } from '../utils/products';
+import { searchProducts } from '../utils/api';
 import { getNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications } from '../utils/notification';
 import CategorySidebar from './CategorySidebar';
 import './Header.css';
@@ -58,7 +59,7 @@ function Header() {
   }, [location]);
 
   // 검색어 변경 핸들러
-  const handleSearchChange = (e) => {
+  const handleSearchChange = async (e) => {
     const query = e.target.value;
     setSearchQuery(query);
 
@@ -66,13 +67,28 @@ function Header() {
       setSearchResults([]);
       setShowSearchResults(false);
     } else {
-      // 상품명에 한 글자라도 포함되면 검색 결과에 포함 (대소문자 구분 없음)
-      const queryLower = query.toLowerCase();
-      const results = allProducts.filter(product =>
-        product.name.toLowerCase().includes(queryLower)
-      );
-      setSearchResults(results);
-      setShowSearchResults(results.length > 0);
+      // API 호출로 상품 검색
+      try {
+        const result = await searchProducts(query);
+        if (result.success && result.data) {
+          // API 응답을 프론트엔드 형식으로 변환
+          const formattedResults = result.data.map(product => ({
+            id: product.id,
+            name: product.name,
+            price: product.price ? parseFloat(product.price) : 0,
+            image: product.image || ''
+          }));
+          setSearchResults(formattedResults);
+          setShowSearchResults(formattedResults.length > 0);
+        } else {
+          setSearchResults([]);
+          setShowSearchResults(false);
+        }
+      } catch (error) {
+        console.error('검색 오류:', error);
+        setSearchResults([]);
+        setShowSearchResults(false);
+      }
     }
   };
 

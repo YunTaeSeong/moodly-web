@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getAllProducts } from '../utils/api';
 import './HotDeal.css';
 
-// 오늘의 핫딜 상품 10개
-const hotDealProducts = [
+// 기존 하드코딩 데이터 (fallback)
+const fallbackProducts = [
   {
     id: 101,
     name: '프리미엄 무선 이어폰',
@@ -99,7 +100,48 @@ const hotDealProducts = [
 function HotDeal() {
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [hotDealProducts, setHotDealProducts] = useState(fallbackProducts);
   const itemsPerPage = 5;
+
+  useEffect(() => {
+    const loadHotDealProducts = async () => {
+      try {
+        const result = await getAllProducts();
+        if (result.success && result.data && result.data.length > 0) {
+          // 할인율이 있는 상품만 필터링하고 할인율 높은 순으로 정렬
+          const productsWithDiscount = result.data
+            .filter(product => product.discount && product.discount > 0)
+            .map(product => {
+              const price = product.price ? parseFloat(product.price) : 0;
+              const discount = product.discount || 0;
+              const originalPrice = discount > 0 ? Math.round(price / (1 - discount / 100)) : price;
+              
+              return {
+                id: product.id,
+                name: product.name,
+                originalPrice: originalPrice,
+                salePrice: price,
+                discount: discount,
+                image: product.image || '',
+                description: product.description || ''
+              };
+            })
+            .sort((a, b) => b.discount - a.discount) // 할인율 높은 순
+            .slice(0, 10); // 상위 10개만
+            
+          if (productsWithDiscount.length > 0) {
+            setHotDealProducts(productsWithDiscount);
+          }
+        }
+      } catch (error) {
+        console.error('핫딜 상품 로드 오류:', error);
+        // 에러 시 fallback 데이터 사용
+      }
+    };
+
+    loadHotDealProducts();
+  }, []);
+
   const totalPages = Math.ceil(hotDealProducts.length / itemsPerPage);
 
   const handleProductClick = (productId) => {
@@ -205,4 +247,3 @@ function HotDeal() {
 }
 
 export default HotDeal;
-

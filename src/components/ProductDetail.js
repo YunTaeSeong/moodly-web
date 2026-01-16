@@ -12,6 +12,7 @@ import { getReviewsByProductId } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
+import { getProductById } from '../utils/api';
 import './ProductDetail.css';
 
 // 샘플 상품 데이터 (실제로는 API나 상태 관리에서 가져올 수 있습니다)
@@ -360,8 +361,12 @@ function ProductDetail() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const productId = parseInt(id);
-  // 먼저 기본 products에서 찾고, 없으면 categoryProducts에서 찾기
-  const product = products[productId] || getCategoryProductById(productId);
+  
+  // 상품 데이터 상태
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'detail');
   const [wishlistStatus, setWishlistStatus] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -383,6 +388,73 @@ function ProductDetail() {
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewSortOrder, setReviewSortOrder] = useState('latest'); // 'latest' or 'rating'
+
+  // 상품 데이터 로드
+  useEffect(() => {
+    const loadProduct = async () => {
+      if (!productId || isNaN(productId)) {
+        setError('유효하지 않은 상품 ID입니다.');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const result = await getProductById(productId);
+        
+        if (result.success && result.data) {
+          // API 응답을 프론트엔드 형식으로 변환
+          const apiProduct = result.data;
+          
+          // description이나 details가 없으면 기본값 제공
+          const defaultDescription = `${apiProduct.name}은(는) 프리미엄 품질의 제품으로, 고객 만족을 최우선으로 제작되었습니다. 세심한 주의를 기울여 만들어진 이 제품은 일상 생활에서 편리함과 만족감을 제공합니다.`;
+          const defaultDetails = `• 프리미엄 품질 보증\n• 안전한 포장 및 배송\n• 빠른 배송 서비스\n• 1년 품질 보증\n• 고객 만족도 우수\n• 다양한 사용자 후기\n• 신뢰할 수 있는 브랜드\n• 환경 친화적 제품`;
+          
+          const formattedProduct = {
+            id: apiProduct.id,
+            name: apiProduct.name,
+            price: apiProduct.price ? parseFloat(apiProduct.price) : 0,
+            originalPrice: apiProduct.discount && apiProduct.discount > 0 
+              ? Math.round(parseFloat(apiProduct.price) / (1 - apiProduct.discount / 100))
+              : parseFloat(apiProduct.price),
+            discount: apiProduct.discount || 0,
+            image: apiProduct.image || '',
+            description: apiProduct.description || defaultDescription,
+            details: apiProduct.details || defaultDetails,
+            category: apiProduct.categoryName || '',
+            categoryId: apiProduct.categoryId || null,
+            rating: apiProduct.rating ? parseFloat(apiProduct.rating) : 0,
+            reviewCount: apiProduct.reviewCount || 0,
+            purchaseCount: 0 // API에 없으면 0으로 설정
+          };
+          setProduct(formattedProduct);
+        } else {
+          // API 실패 시 fallback으로 하드코딩 데이터 사용
+          const fallbackProduct = products[productId] || getCategoryProductById(productId);
+          if (fallbackProduct) {
+            setProduct(fallbackProduct);
+          } else {
+            setError(result.message || '상품을 찾을 수 없습니다.');
+          }
+        }
+      } catch (err) {
+        console.error('상품 로드 오류:', err);
+        // 에러 발생 시에도 fallback 시도
+        const fallbackProduct = products[productId] || getCategoryProductById(productId);
+        if (fallbackProduct) {
+          setProduct(fallbackProduct);
+        } else {
+          setError('상품을 불러오는 중 오류가 발생했습니다.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, [productId]);
 
   // 페이지 로드 시 스크롤을 맨 위로 이동
   useEffect(() => {
@@ -430,11 +502,23 @@ function ProductDetail() {
     }
   }, [product, activeTab, reviewSortOrder]);
 
-  if (!product) {
+  // 로딩 중
+  if (loading) {
+    return (
+      <div className="product-detail-container">
+        <div className="product-loading">
+          <h2>상품 정보를 불러오는 중...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // 에러 또는 상품 없음
+  if (error || !product) {
     return (
       <div className="product-detail-container">
         <div className="product-not-found">
-          <h2>상품을 찾을 수 없습니다</h2>
+          <h2>{error || '상품을 찾을 수 없습니다'}</h2>
           <button onClick={() => navigate('/')} className="back-button">
             홈으로 돌아가기
           </button>

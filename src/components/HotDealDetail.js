@@ -104,12 +104,14 @@ function HotDealDetail() {
 
   // 선택된 상품으로 스크롤
   useEffect(() => {
-    if (selectedProductRef.current) {
+    if (selectedProductId) {
       setTimeout(() => {
-        selectedProductRef.current.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
+        if (selectedProductRef.current) {
+          selectedProductRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
       }, 300);
     }
   }, [selectedProductId]);

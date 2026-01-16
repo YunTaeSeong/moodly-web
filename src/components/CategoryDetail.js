@@ -1,7 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { getAllCategoryProducts, getCategoryProducts } from '../utils/categoryProducts';
+import { getAllProducts } from '../utils/api';
 import './CategoryDetail.css';
+
+// 프론트엔드 카테고리 ID -> 백엔드 카테고리 ID 매핑
+const categoryIdMapping = {
+  'clothing': 1,
+  'electronics': 2,
+  'food': 3,
+  'beauty': 4,
+  'home-interior': 5,
+  'home': 5
+};
+
+// 카테고리 메타데이터
+const categoryMeta = {
+  'clothing': { name: '의류', icon: '👕', description: '트렌디한 패션 아이템을 만나보세요' },
+  'electronics': { name: '가전용품', icon: '📱', description: '최신 기술의 가전제품을 만나보세요' },
+  'food': { name: '푸드', icon: '🍔', description: '신선하고 건강한 식품을 만나보세요' },
+  'beauty': { name: '뷰티', icon: '💄', description: '아름다움을 위한 뷰티 제품' },
+  'home-interior': { name: '홈인테리어', icon: '🏠', description: '아늑한 공간을 만드는 인테리어 아이템' },
+  'home': { name: '홈인테리어', icon: '🏠', description: '아늑한 공간을 만드는 인테리어 아이템' }
+};
 
 function CategoryDetail() {
   const { id } = useParams();
@@ -9,8 +29,60 @@ function CategoryDetail() {
   const [searchParams] = useSearchParams();
   const subCategoryName = searchParams.get('sub');
   
-  const allCategories = getAllCategoryProducts();
-  const category = allCategories[id];
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  const category = categoryMeta[id];
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      // 카테고리 ID가 유효하지 않으면 즉시 종료
+      if (!id || !categoryIdMapping[id]) {
+        setError('유효하지 않은 카테고리입니다.');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // 백엔드 카테고리 ID로 변환
+        const backendCategoryId = categoryIdMapping[id];
+        
+        const result = await getAllProducts(backendCategoryId);
+        if (result.success && result.data) {
+          let fetchedProducts = result.data;
+
+          // 서브카테고리 필터링 (프론트엔드에서 처리)
+          if (subCategoryName) {
+            fetchedProducts = fetchedProducts.filter(p => p.subCategoryName === subCategoryName);
+          }
+
+          // API 응답을 프론트엔드 형식으로 변환
+          const formattedProducts = fetchedProducts.map(product => ({
+            id: product.id,
+            name: product.name,
+            price: product.price ? parseFloat(product.price) : 0,
+            image: product.image || '',
+            description: product.description || ''
+          }));
+          setProducts(formattedProducts);
+        } else {
+          setProducts([]);
+        }
+      } catch (error) {
+        console.error('카테고리 상품 로드 오류:', error);
+        setError('상품을 불러오는 중 오류가 발생했습니다.');
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [id, subCategoryName]);
 
   if (!category) {
     return (
@@ -24,9 +96,6 @@ function CategoryDetail() {
       </div>
     );
   }
-
-  // 서브카테고리별 상품 가져오기
-  const products = getCategoryProducts(id, subCategoryName);
 
   const handleProductClick = (productId) => {
     navigate(`/product/${productId}`);
@@ -51,7 +120,18 @@ function CategoryDetail() {
         <h2 className="category-products-title">
           {subCategoryName ? `${subCategoryName} 상품` : '전체 상품 목록'}
         </h2>
-        {products.length === 0 ? (
+        {loading ? (
+          <div className="category-empty">
+            <p>상품을 불러오는 중...</p>
+          </div>
+        ) : error ? (
+          <div className="category-empty">
+            <p>{error}</p>
+            <button onClick={() => navigate('/')} className="back-button">
+              홈으로 돌아가기
+            </button>
+          </div>
+        ) : products.length === 0 ? (
           <div className="category-empty">
             <p>상품이 없습니다.</p>
           </div>
@@ -65,14 +145,14 @@ function CategoryDetail() {
               >
                 <div className="category-product-image-container">
                   <img
-                    src={product.image}
+                    src={product.image || 'https://via.placeholder.com/300?text=No+Image'}
                     alt={product.name}
                     className="category-product-image"
                   />
                 </div>
                 <div className="category-product-info">
                   <h3 className="category-product-name">{product.name}</h3>
-                  <p className="category-product-description">{product.description}</p>
+                  <p className="category-product-description">{product.description || '설명 없음'}</p>
                   <p className="category-product-price">{product.price.toLocaleString()}원</p>
                 </div>
               </div>
