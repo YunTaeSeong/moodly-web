@@ -12,7 +12,7 @@ import { getReviewsByProductId } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
-import { getProductById } from '../utils/api';
+import { getProductById, addToCart } from '../utils/api';
 import './ProductDetail.css';
 
 // 샘플 상품 데이터 (실제로는 API나 상태 관리에서 가져올 수 있습니다)
@@ -543,9 +543,26 @@ function ProductDetail() {
     setSelectedTotal({ quantity, total });
   };
 
-  const handleAddToCart = () => {
-    // 장바구니 추가 로직
-    window.alert(`${product.name} ${quantity}개가 장바구니에 추가되었습니다.`);
+  const handleAddToCart = async () => {
+    // 로그인 체크
+    if (!isLoggedIn()) {
+      if (window.confirm('로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?')) {
+        navigate('/login');
+      }
+      return;
+    }
+
+    try {
+      const result = await addToCart(productId, quantity);
+      if (result.success) {
+        window.alert(`${product.name} ${quantity}개가 장바구니에 추가되었습니다.`);
+      } else {
+        window.alert(result.message || '장바구니 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('장바구니 추가 오류:', error);
+      window.alert('장바구니 추가 중 오류가 발생했습니다.');
+    }
   };
 
   // 쿠폰 모달 열기

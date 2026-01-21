@@ -3,6 +3,7 @@ import { getAccessToken } from './token';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8082';
 const PRODUCT_API_BASE_URL = process.env.REACT_APP_PRODUCT_API_BASE_URL || 'http://localhost:8083';
+const CART_API_BASE_URL = process.env.REACT_APP_CART_API_BASE_URL || 'http://localhost:8084';
 
 // API 호출 기본 함수
 export const apiCall = async (endpoint, options = {}) => {
@@ -422,6 +423,318 @@ export const getProductById = async (productId) => {
       success: false, 
       message: '상품 조회 중 오류가 발생했습니다.',
       status: 0
+    };
+  }
+};
+
+// 장바구니 추가
+export const addToCart = async (productId, quantity = 1) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return {
+        success: false,
+        message: '로그인이 필요합니다.',
+        status: 401
+      };
+    }
+
+    const response = await fetch(`${CART_API_BASE_URL}/cart`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        productId: productId,
+        quantity: quantity
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || '장바구니 추가에 실패했습니다.',
+        status: response.status
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data: data
+    };
+  } catch (error) {
+    console.error('장바구니 추가 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      originalError: error
+    };
+  }
+};
+
+// 장바구니 조회
+export const getCartItems = async () => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return {
+        success: false,
+        message: '로그인이 필요합니다.',
+        status: 401,
+        data: []
+      };
+    }
+
+    const response = await fetch(`${CART_API_BASE_URL}/cart`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: '장바구니 조회에 실패했습니다.',
+        status: response.status,
+        data: []
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data: data || []
+    };
+  } catch (error) {
+    console.error('장바구니 조회 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      data: []
+    };
+  }
+};
+
+// 장바구니 수량 변경
+export const updateCartQuantity = async (cartId, quantity) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return {
+        success: false,
+        message: '로그인이 필요합니다.',
+        status: 401
+      };
+    }
+
+    const response = await fetch(`${CART_API_BASE_URL}/cart/${cartId}/quantity?quantity=${quantity}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || '수량 변경에 실패했습니다.',
+        status: response.status
+      };
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('수량 변경 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      originalError: error
+    };
+  }
+};
+
+// 장바구니 삭제
+export const deleteCartItem = async (cartId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return {
+        success: false,
+        message: '로그인이 필요합니다.',
+        status: 401
+      };
+    }
+
+    const response = await fetch(`${CART_API_BASE_URL}/cart/${cartId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || '장바구니 삭제에 실패했습니다.',
+        status: response.status
+      };
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('장바구니 삭제 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      originalError: error
+    };
+  }
+};
+
+// 체크박스 선택/해제
+export const updateCartChecked = async (cartId, checked) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return {
+        success: false,
+        message: '로그인이 필요합니다.',
+        status: 401
+      };
+    }
+
+    const response = await fetch(`${CART_API_BASE_URL}/cart/${cartId}/checked`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ checked })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || '체크박스 업데이트에 실패했습니다.',
+        status: response.status
+      };
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('체크박스 업데이트 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      originalError: error
+    };
+  }
+};
+
+// 전체 선택/해제
+export const updateAllCartChecked = async (checked) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return {
+        success: false,
+        message: '로그인이 필요합니다.',
+        status: 401
+      };
+    }
+
+    const response = await fetch(`${CART_API_BASE_URL}/cart/checked/all?checked=${checked}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || '전체 선택/해제에 실패했습니다.',
+        status: response.status
+      };
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('전체 선택/해제 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      originalError: error
+    };
+  }
+};
+
+// 선택된 상품 일괄 삭제
+export const deleteSelectedCartItems = async (cartIds) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return {
+        success: false,
+        message: '로그인이 필요합니다.',
+        status: 401
+      };
+    }
+
+    const response = await fetch(`${CART_API_BASE_URL}/cart/selected`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ cartIds })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || '선택된 상품 삭제에 실패했습니다.',
+        status: response.status
+      };
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('선택된 상품 삭제 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      originalError: error
     };
   }
 };

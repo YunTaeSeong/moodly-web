@@ -1,107 +1,208 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
+import {
+  getCartItems,
+  updateCartQuantity,
+  deleteCartItem,
+  updateCartChecked,
+  updateAllCartChecked,
+  deleteSelectedCartItems
+} from '../utils/api';
 import './Cart.css';
-
-// 장바구니 상품 데이터 (5개 상품, 랜덤 수량)
-const getRandomQuantity = () => Math.floor(Math.random() * 5) + 1; // 1~5 랜덤
-
-const initialCartItems = [
-  {
-    id: 1,
-    name: '스마트폰 케이스',
-    price: 15000,
-    image: 'https://images.unsplash.com/photo-1601972602237-8c79241e468b?w=200&h=200&fit=crop',
-    quantity: getRandomQuantity(),
-    checked: true
-  },
-  {
-    id: 2,
-    name: '무선 이어폰',
-    price: 89000,
-    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=200&h=200&fit=crop',
-    quantity: getRandomQuantity(),
-    checked: true
-  },
-  {
-    id: 3,
-    name: '노트북 스탠드',
-    price: 45000,
-    image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=200&h=200&fit=crop',
-    quantity: getRandomQuantity(),
-    checked: true
-  },
-  {
-    id: 4,
-    name: '블루투스 스피커',
-    price: 120000,
-    image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=200&h=200&fit=crop',
-    quantity: getRandomQuantity(),
-    checked: true
-  },
-  {
-    id: 5,
-    name: '스마트 워치',
-    price: 250000,
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&h=200&fit=crop',
-    quantity: getRandomQuantity(),
-    checked: true
-  }
-];
 
 const SHIPPING_FEE = 3000;
 
 function Cart() {
   const navigate = useNavigate();
-  const [cartItems, setCartItems] = useState(initialCartItems);
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // 장바구니 데이터 로드
   useEffect(() => {
-    // 로그인 체크
-    if (!isLoggedIn()) {
-      navigate('/login');
-    }
+    const loadCartItems = async () => {
+      if (!isLoggedIn()) {
+        navigate('/login');
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const result = await getCartItems();
+        if (result.success && result.data) {
+          // 백엔드 응답을 프론트엔드 형식으로 변환
+          const formattedItems = result.data.map(item => ({
+            id: item.id, // cartId
+            cartId: item.id,
+            productId: item.productId,
+            name: item.productName || '상품명 없음',
+            price: item.productPrice ? parseFloat(item.productPrice) : 0,
+            image: item.productImage || 'https://via.placeholder.com/200?text=No+Image',
+            quantity: item.quantity || 1,
+            checked: item.checked !== undefined ? item.checked : true
+          }));
+          setCartItems(formattedItems);
+        } else {
+          setCartItems([]);
+        }
+      } catch (err) {
+        console.error('장바구니 로드 오류:', err);
+        setError('장바구니를 불러오는 중 오류가 발생했습니다.');
+        setCartItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCartItems();
   }, [navigate]);
 
   // 체크박스 토글
-  const handleCheckToggle = (id) => {
+  const handleCheckToggle = async (cartId, currentChecked) => {
+    const newChecked = !currentChecked;
+    
+    // 즉시 UI 업데이트
     setCartItems(cartItems.map(item =>
-      item.id === id ? { ...item, checked: !item.checked } : item
+      item.cartId === cartId ? { ...item, checked: newChecked } : item
     ));
+
+    // 백엔드에 반영
+    try {
+      const result = await updateCartChecked(cartId, newChecked);
+      if (!result.success) {
+        // 실패 시 롤백
+        setCartItems(cartItems.map(item =>
+          item.cartId === cartId ? { ...item, checked: currentChecked } : item
+        ));
+        window.alert(result.message || '체크박스 업데이트에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('체크박스 업데이트 오류:', error);
+      // 실패 시 롤백
+      setCartItems(cartItems.map(item =>
+        item.cartId === cartId ? { ...item, checked: currentChecked } : item
+      ));
+      window.alert('체크박스 업데이트 중 오류가 발생했습니다.');
+    }
   };
 
   // 전체 선택/해제
-  const handleSelectAll = (checked) => {
+  const handleSelectAll = async (checked) => {
+    // 즉시 UI 업데이트
     setCartItems(cartItems.map(item => ({ ...item, checked })));
+
+    // 백엔드에 반영
+    try {
+      const result = await updateAllCartChecked(checked);
+      if (!result.success) {
+        // 실패 시 롤백
+        setCartItems(cartItems.map(item => ({ ...item, checked: !checked })));
+        window.alert(result.message || '전체 선택/해제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('전체 선택/해제 오류:', error);
+      // 실패 시 롤백
+      setCartItems(cartItems.map(item => ({ ...item, checked: !checked })));
+      window.alert('전체 선택/해제 중 오류가 발생했습니다.');
+    }
   };
 
   // 수량 증가
-  const handleIncreaseQuantity = (id) => {
+  const handleIncreaseQuantity = async (cartId, currentQuantity) => {
+    const newQuantity = currentQuantity + 1;
+    
+    // 즉시 UI 업데이트
     setCartItems(cartItems.map(item =>
-      item.id === id ? { ...item, quantity: item.quantity + 1 } : item
+      item.cartId === cartId ? { ...item, quantity: newQuantity } : item
     ));
+
+    // 백엔드에 반영
+    try {
+      const result = await updateCartQuantity(cartId, newQuantity);
+      if (!result.success) {
+        // 실패 시 롤백
+        setCartItems(cartItems.map(item =>
+          item.cartId === cartId ? { ...item, quantity: currentQuantity } : item
+        ));
+        window.alert(result.message || '수량 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('수량 변경 오류:', error);
+      // 실패 시 롤백
+      setCartItems(cartItems.map(item =>
+        item.cartId === cartId ? { ...item, quantity: currentQuantity } : item
+      ));
+      window.alert('수량 변경 중 오류가 발생했습니다.');
+    }
   };
 
   // 수량 감소
-  const handleDecreaseQuantity = (id) => {
+  const handleDecreaseQuantity = async (cartId, currentQuantity) => {
+    if (currentQuantity <= 1) return;
+    
+    const newQuantity = currentQuantity - 1;
+    
+    // 즉시 UI 업데이트
     setCartItems(cartItems.map(item =>
-      item.id === id && item.quantity > 1
-        ? { ...item, quantity: item.quantity - 1 }
-        : item
+      item.cartId === cartId ? { ...item, quantity: newQuantity } : item
     ));
+
+    // 백엔드에 반영
+    try {
+      const result = await updateCartQuantity(cartId, newQuantity);
+      if (!result.success) {
+        // 실패 시 롤백
+        setCartItems(cartItems.map(item =>
+          item.cartId === cartId ? { ...item, quantity: currentQuantity } : item
+        ));
+        window.alert(result.message || '수량 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('수량 변경 오류:', error);
+      // 실패 시 롤백
+      setCartItems(cartItems.map(item =>
+        item.cartId === cartId ? { ...item, quantity: currentQuantity } : item
+      ));
+      window.alert('수량 변경 중 오류가 발생했습니다.');
+    }
   };
 
   // 수량 직접 입력
-  const handleQuantityChange = (id, value) => {
+  const handleQuantityChange = async (cartId, value, currentQuantity) => {
     const numValue = parseInt(value) || 1;
     if (numValue < 1) return;
+    
+    // 즉시 UI 업데이트
     setCartItems(cartItems.map(item =>
-      item.id === id ? { ...item, quantity: numValue } : item
+      item.cartId === cartId ? { ...item, quantity: numValue } : item
     ));
+
+    // 백엔드에 반영
+    try {
+      const result = await updateCartQuantity(cartId, numValue);
+      if (!result.success) {
+        // 실패 시 롤백
+        setCartItems(cartItems.map(item =>
+          item.cartId === cartId ? { ...item, quantity: currentQuantity } : item
+        ));
+        window.alert(result.message || '수량 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('수량 변경 오류:', error);
+      // 실패 시 롤백
+      setCartItems(cartItems.map(item =>
+        item.cartId === cartId ? { ...item, quantity: currentQuantity } : item
+      ));
+      window.alert('수량 변경 중 오류가 발생했습니다.');
+    }
   };
 
-  // 개별 상품 삭제 (체크박스 선택 필수)
-  const handleDeleteItem = (id) => {
-    const item = cartItems.find(item => item.id === id);
+  // 개별 상품 삭제
+  const handleDeleteItem = async (cartId) => {
+    const item = cartItems.find(item => item.cartId === cartId);
     if (!item) return;
 
     // 체크박스가 선택되지 않았으면 알람 표시
@@ -110,32 +211,86 @@ function Cart() {
       return;
     }
 
-    // 체크박스가 선택되어 있으면 삭제 확인
+    // 삭제 확인
     if (window.confirm('이 상품을 장바구니에서 삭제하시겠습니까?')) {
-      setCartItems(cartItems.filter(item => item.id !== id));
+      try {
+        const result = await deleteCartItem(cartId);
+        if (result.success) {
+          // 성공 시 목록에서 제거
+          setCartItems(cartItems.filter(item => item.cartId !== cartId));
+        } else {
+          window.alert(result.message || '장바구니 삭제에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('장바구니 삭제 오류:', error);
+        window.alert('장바구니 삭제 중 오류가 발생했습니다.');
+      }
     }
   };
 
-  // 전체 삭제
-  const handleDeleteAll = () => {
-    if (cartItems.length === 0) {
-      window.alert('삭제할 상품이 없습니다.');
+  // 전체 삭제 (선택된 상품만)
+  const handleDeleteAll = async () => {
+    const selectedItems = cartItems.filter(item => item.checked);
+    
+    if (selectedItems.length === 0) {
+      window.alert('삭제할 상품이 없습니다. 체크박스를 선택해주세요.');
       return;
     }
 
-    if (window.confirm('장바구니의 모든 상품을 삭제하시겠습니까?')) {
-      setCartItems([]);
+    if (window.confirm(`선택된 ${selectedItems.length}개의 상품을 장바구니에서 삭제하시겠습니까?`)) {
+      try {
+        const cartIds = selectedItems.map(item => item.cartId);
+        const result = await deleteSelectedCartItems(cartIds);
+        if (result.success) {
+          // 성공 시 선택된 항목만 목록에서 제거
+          setCartItems(cartItems.filter(item => !item.checked));
+        } else {
+          window.alert(result.message || '선택된 상품 삭제에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('선택된 상품 삭제 오류:', error);
+        window.alert('선택된 상품 삭제 중 오류가 발생했습니다.');
+      }
     }
   };
 
   // 선택된 상품들의 합계 계산
   const selectedItems = cartItems.filter(item => item.checked);
-  const subtotal = selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = selectedItems.reduce((sum, item) => {
+    const price = item.productPrice ? parseFloat(item.productPrice) : item.price || 0;
+    return sum + (price * item.quantity);
+  }, 0);
   const total = subtotal + SHIPPING_FEE;
   const allChecked = cartItems.length > 0 && cartItems.every(item => item.checked);
 
   if (!isLoggedIn()) {
     return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="cart-container">
+        <div className="cart-content">
+          <h1 className="cart-title">장바구니</h1>
+          <div className="cart-empty">
+            <p>장바구니를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="cart-container">
+        <div className="cart-content">
+          <h1 className="cart-title">장바구니</h1>
+          <div className="cart-empty">
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -162,7 +317,7 @@ function Cart() {
                 <button 
                   className="delete-all-button"
                   onClick={handleDeleteAll}
-                  title="전체 삭제"
+                  title="선택된 상품 삭제"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3 6 5 6 21 6"></polyline>
@@ -175,17 +330,17 @@ function Cart() {
 
               <div className="cart-items-list">
                 {cartItems.map((item) => (
-                  <div key={item.id} className="cart-item">
+                  <div key={item.cartId} className="cart-item">
                     <div className="cart-item-checkbox">
                       <input
                         type="checkbox"
                         checked={item.checked}
-                        onChange={() => handleCheckToggle(item.id)}
+                        onChange={() => handleCheckToggle(item.cartId, item.checked)}
                       />
                     </div>
                     <div 
                       className="cart-item-image"
-                      onClick={() => navigate(`/product/${item.id}`)}
+                      onClick={() => navigate(`/product/${item.productId}`)}
                       style={{ cursor: 'pointer' }}
                     >
                       <img src={item.image} alt={item.name} />
@@ -193,7 +348,7 @@ function Cart() {
                     <div className="cart-item-info">
                       <h3 
                         className="cart-item-name"
-                        onClick={() => navigate(`/product/${item.id}`)}
+                        onClick={() => navigate(`/product/${item.productId}`)}
                         style={{ cursor: 'pointer' }}
                       >
                         {item.name}
@@ -204,7 +359,7 @@ function Cart() {
                     <div className="cart-item-quantity">
                       <button
                         className="quantity-btn decrease"
-                        onClick={() => handleDecreaseQuantity(item.id)}
+                        onClick={() => handleDecreaseQuantity(item.cartId, item.quantity)}
                       >
                         -
                       </button>
@@ -212,12 +367,12 @@ function Cart() {
                         type="number"
                         min="1"
                         value={item.quantity}
-                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                        onChange={(e) => handleQuantityChange(item.cartId, e.target.value, item.quantity)}
                         className="quantity-input"
                       />
                       <button
                         className="quantity-btn increase"
-                        onClick={() => handleIncreaseQuantity(item.id)}
+                        onClick={() => handleIncreaseQuantity(item.cartId, item.quantity)}
                       >
                         +
                       </button>
@@ -230,7 +385,7 @@ function Cart() {
                     <div className="cart-item-delete">
                       <button
                         className="delete-item-button"
-                        onClick={() => handleDeleteItem(item.id)}
+                        onClick={() => handleDeleteItem(item.cartId)}
                         title="삭제"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -274,4 +429,3 @@ function Cart() {
 }
 
 export default Cart;
-
