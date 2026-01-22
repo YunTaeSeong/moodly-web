@@ -52,17 +52,25 @@ const products = {
     id: 4,
     name: '블루투스 스피커',
     price: 120000,
+    originalPrice: 166667,
+    discount: 28,
     image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=500&h=500&fit=crop',
-    description: '고음질 블루투스 스피커로 어디서나 음악을 즐기세요.',
-    details: '• 360도 사운드\n• 20시간 재생\n• 방수 기능\n• 다중 연결 지원'
+    description: '고음질 블루투스 스피커로 어디서나 음악을 즐기세요. 강력한 베이스와 선명한 고음으로 콘서트장 같은 몰입감을 선사합니다.',
+    details: '• 360도 사운드로 어디서나 균일한 음질\n• 20시간 연속 재생 가능한 배터리\n• IPX5 방수 기능으로 야외 사용 가능\n• 다중 연결 지원으로 여러 기기 연결\n• 프리미엄 드라이버로 깊이 있는 사운드',
+    rating: 4.8,
+    reviewCount: 678
   },
   5: {
     id: 5,
     name: '스마트 워치',
     price: 250000,
+    originalPrice: 352112,
+    discount: 29,
     image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop',
-    description: '최신 스마트 워치로 건강과 일상을 관리하세요.',
-    details: '• 심박수 측정\n• GPS 내장\n• 7일 배터리\n• 스마트 알림'
+    description: '최신 스마트 워치로 건강과 일상을 관리하세요. 운동 추적부터 알림까지 모든 것을 한 손목에서 처리할 수 있습니다.',
+    details: '• 심박수 측정으로 건강 모니터링\n• GPS 내장으로 운동 경로 추적\n• 7일 배터리 수명으로 장시간 사용\n• 스마트 알림으로 중요한 정보 확인\n• 수영 방수 기능으로 다양한 운동 지원',
+    rating: 4.65,
+    reviewCount: 892
   },
   6: {
     id: 6,
@@ -151,6 +159,79 @@ const products = {
     image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop',
     description: '프리미엄 노이즈 캔슬링 이어폰으로 집중력을 높이세요.',
     details: '• 액티브 노이즈 캔슬링\n• 프리미엄 사운드\n• 30시간 배터리\n• 터치 제어'
+  },
+  // 오늘의 핫딜/특가에서 사용하는 추가 상품들
+  25: {
+    id: 25,
+    name: '에어프라이어',
+    price: 180000,
+    originalPrice: 250000,
+    discount: 28,
+    image: 'https://images.unsplash.com/photo-1556910096-6f5e5ad8bcf4?w=500&h=500&fit=crop',
+    description: '대용량 에어프라이어로 건강한 요리를 즐기세요. 기름 없이도 바삭하고 맛있는 요리를 만들 수 있습니다.',
+    details: '• 대용량으로 가족 단위 요리 가능\n• 기름 없이 바삭한 요리 가능\n• 다양한 요리 모드 제공\n• 빠른 예열로 시간 절약\n• 세척이 쉬운 분리형 부품',
+    rating: 4.65,
+    reviewCount: 789
+  },
+  26: {
+    id: 26,
+    name: '로봇 청소기',
+    price: 450000,
+    originalPrice: 616438,
+    discount: 27,
+    image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=500&h=500&fit=crop',
+    description: '스마트 로봇 청소기로 자동으로 깨끗한 집을 유지하세요. 스마트 매핑 기능으로 효율적인 청소 경로를 설정합니다.',
+    details: '• 스마트 매핑으로 효율적인 청소\n• 자동 충전 기능으로 연속 청소\n• 모바일 앱으로 원격 제어\n• 강력한 흡입력으로 깊은 청소\n• 다양한 바닥재에 적합',
+    rating: 4.8,
+    reviewCount: 456
+  },
+  30: {
+    id: 30,
+    name: '프리미엄 한우',
+    price: 85000,
+    originalPrice: 114865,
+    discount: 26,
+    image: 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=500&h=500&fit=crop',
+    description: '1등급 한우 세트로 프리미엄 고기를 즐기세요. 최상급 한우를 엄선하여 신선하게 배송해드립니다.',
+    details: '• 1등급 한우로 최상급 품질\n• 신선도 보장으로 당일 배송\n• 다양한 부위 구성 (등심, 안심, 갈비 등)\n• 냉동 보관으로 오래 보관 가능\n• 특별한 날에 완벽한 선택',
+    rating: 4.85,
+    reviewCount: 234
+  },
+  35: {
+    id: 35,
+    name: '스킨케어 세트',
+    price: 120000,
+    originalPrice: 181818,
+    discount: 34,
+    image: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=500&h=500&fit=crop',
+    description: '프리미엄 스킨케어 세트로 건강한 피부를 만들어보세요. 모든 피부 타입에 적합한 완벽한 스킨케어 루틴을 제공합니다.',
+    details: '• 클렌징, 토너, 세럼, 크림 완벽 구성\n• 모든 피부 타입에 적합\n• 수분 공급과 영양 공급 동시에\n• 프리미엄 원료로 안전하게 제조\n• 지속적인 사용으로 피부 개선',
+    rating: 4.75,
+    reviewCount: 567
+  },
+  37: {
+    id: 37,
+    name: '향수',
+    price: 150000,
+    originalPrice: 217391,
+    discount: 31,
+    image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=500&h=500&fit=crop',
+    description: '프리미엄 향수로 고급스러운 향을 즐기세요. 오래 지속되는 향과 세련된 향조를 제공합니다.',
+    details: '• 프리미엄 향료로 고급스러운 향\n• 오래 지속되는 향기 (8시간 이상)\n• 세련된 향조로 다양한 상황에 적합\n• 우아한 디자인으로 소장 가치\n• 특별한 날에 완벽한 선택',
+    rating: 4.8,
+    reviewCount: 345
+  },
+  41: {
+    id: 41,
+    name: '디퓨저 세트',
+    price: 45000,
+    originalPrice: 65217,
+    discount: 31,
+    image: 'https://images.unsplash.com/photo-1606800054160-8e3c14e1a0b0?w=500&h=500&fit=crop',
+    description: '아로마 디퓨저로 집안을 향기롭게 만들어보세요. 다양한 아로마 오일과 함께 사용하여 분위기를 연출할 수 있습니다.',
+    details: '• 아로마 오일과 함께 사용하는 디퓨저\n• 다양한 향 옵션 제공\n• 조용한 작동으로 수면 방해 없음\n• LED 조명 기능으로 분위기 연출\n• 넓은 공간 향기 확산',
+    rating: 4.65,
+    reviewCount: 345
   },
   // 오늘의 핫딜 상품 (101-110)
   101: {
@@ -431,22 +512,61 @@ function ProductDetail() {
           };
           setProduct(formattedProduct);
         } else {
-          // API 실패 시 fallback으로 하드코딩 데이터 사용
+          // API 실패 시 fallback 데이터 사용
           const fallbackProduct = products[productId] || getCategoryProductById(productId);
           if (fallbackProduct) {
-            setProduct(fallbackProduct);
+            // fallback 데이터를 API 형식에 맞게 변환
+            const formattedProduct = {
+              id: fallbackProduct.id,
+              name: fallbackProduct.name,
+              price: fallbackProduct.price || 0,
+              originalPrice: fallbackProduct.originalPrice || fallbackProduct.price || 0,
+              discount: fallbackProduct.discount || 0,
+              image: fallbackProduct.image || '',
+              description: fallbackProduct.description || '',
+              details: fallbackProduct.details || '',
+              category: fallbackProduct.category || '',
+              categoryId: fallbackProduct.categoryId || null,
+              rating: fallbackProduct.rating || 0,
+              reviewCount: fallbackProduct.reviewCount || 0,
+              purchaseCount: fallbackProduct.purchaseCount || 0
+            };
+            setProduct(formattedProduct);
           } else {
-            setError(result.message || '상품을 찾을 수 없습니다.');
+            // fallback도 없으면 에러 표시
+            const errorMessage = result.message || '상품을 찾을 수 없습니다.';
+            setError(errorMessage);
           }
         }
       } catch (err) {
         console.error('상품 로드 오류:', err);
-        // 에러 발생 시에도 fallback 시도
+        // 네트워크 오류 또는 기타 예외 발생 시 fallback 데이터 사용
         const fallbackProduct = products[productId] || getCategoryProductById(productId);
         if (fallbackProduct) {
-          setProduct(fallbackProduct);
+          // fallback 데이터를 API 형식에 맞게 변환
+          const formattedProduct = {
+            id: fallbackProduct.id,
+            name: fallbackProduct.name,
+            price: fallbackProduct.price || 0,
+            originalPrice: fallbackProduct.originalPrice || fallbackProduct.price || 0,
+            discount: fallbackProduct.discount || 0,
+            image: fallbackProduct.image || '',
+            description: fallbackProduct.description || '',
+            details: fallbackProduct.details || '',
+            category: fallbackProduct.category || '',
+            categoryId: fallbackProduct.categoryId || null,
+            rating: fallbackProduct.rating || 0,
+            reviewCount: fallbackProduct.reviewCount || 0,
+            purchaseCount: fallbackProduct.purchaseCount || 0
+          };
+          setProduct(formattedProduct);
         } else {
-          setError('상품을 불러오는 중 오류가 발생했습니다.');
+          // fallback도 없으면 에러 표시
+          if (err.message && err.message.includes('Failed to fetch')) {
+            setError('서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.');
+          } else {
+            setError('상품 정보를 불러오는 중 오류가 발생했습니다.');
+          }
         }
       } finally {
         setLoading(false);
@@ -519,9 +639,23 @@ function ProductDetail() {
       <div className="product-detail-container">
         <div className="product-not-found">
           <h2>{error || '상품을 찾을 수 없습니다'}</h2>
-          <button onClick={() => navigate('/')} className="back-button">
-            홈으로 돌아가기
-          </button>
+          <p style={{ marginTop: '1rem', color: '#666', fontSize: '0.9rem' }}>
+            {error && error.includes('서버에 연결할 수 없습니다') 
+              ? '백엔드 서버가 실행 중인지 확인해주세요.'
+              : '상품 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.'}
+          </p>
+          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button onClick={() => navigate('/')} className="back-button">
+              홈으로 돌아가기
+            </button>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="back-button"
+              style={{ backgroundColor: '#007bff', color: 'white', border: 'none' }}
+            >
+              새로고침
+            </button>
+          </div>
         </div>
       </div>
     );

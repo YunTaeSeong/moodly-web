@@ -419,10 +419,90 @@ export const getProductById = async (productId) => {
     };
   } catch (error) {
     console.error('상품 조회 오류:', error);
+    // 네트워크 오류인지 확인
+    if (error.message && error.message.includes('Failed to fetch')) {
+      return { 
+        success: false, 
+        message: '서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.',
+        status: 0,
+        originalError: error
+      };
+    }
     return { 
       success: false, 
-      message: '상품 조회 중 오류가 발생했습니다.',
-      status: 0
+      message: '상품 정보를 불러오는 중 오류가 발생했습니다.',
+      status: 0,
+      originalError: error
+    };
+  }
+};
+
+// 오늘의 핫딜 상품 조회
+export const getHotDealProducts = async (limit = 10) => {
+  try {
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/hot-deal?limit=${limit}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: '핫딜 상품 조회에 실패했습니다.',
+        status: response.status,
+        data: []
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data: data || []
+    };
+  } catch (error) {
+    console.error('핫딜 상품 조회 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      data: []
+    };
+  }
+};
+
+// 오늘의 특가 상품 조회
+export const getTodaySpecialProducts = async (limit = 10) => {
+  try {
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/today-special?limit=${limit}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: '특가 상품 조회에 실패했습니다.',
+        status: response.status,
+        data: []
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data: data || []
+    };
+  } catch (error) {
+    console.error('특가 상품 조회 오류:', error);
+    return {
+      success: false,
+      message: '네트워크 오류 또는 서버 연결 실패.',
+      status: 0,
+      data: []
     };
   }
 };
