@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { isWishlisted, addToWishlist, removeFromWishlist } from '../utils/wishlist';
 import { getDeliveryAddress, saveDeliveryAddress, hasDeliveryAddress } from '../utils/delivery';
@@ -12,7 +12,7 @@ import { getReviewsByProductId } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
-import { getProductById, addToCart } from '../utils/api';
+import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress } from '../utils/api';
 import './ProductDetail.css';
 
 // 샘플 상품 데이터 (실제로는 API나 상태 관리에서 가져올 수 있습니다)
@@ -454,6 +454,19 @@ function ProductDetail() {
   const [selectedTotal, setSelectedTotal] = useState(null);
   const [couponReceived, setCouponReceived] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState(null);
+  const [showDeliveryAddressModal, setShowDeliveryAddressModal] = useState(false);
+  const [deliveryAddresses, setDeliveryAddresses] = useState([]);
+  const [showAddAddressModal, setShowAddAddressModal] = useState(false);
+  const [newAddressForm, setNewAddressForm] = useState({
+    postcode: '',
+    address: '',
+    detailAddress: '',
+    recipient: '',
+    phoneNumber: '',
+    isDefault: false
+  });
+  const setNewAddressFormRef = useRef(null);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [inquiryContent, setInquiryContent] = useState('');
@@ -587,12 +600,137 @@ function ProductDetail() {
       setWishlistStatus(isWishlisted(product.id));
       setSelectedProductId(product.id); // 현재 상품을 기본값으로 설정
     }
-    // 저장된 배송지 정보 불러오기
-    const savedAddress = getDeliveryAddress();
-    if (savedAddress) {
-      setDeliveryAddress(savedAddress);
+    // 마이페이지 배송지 목록 불러오기 (우선)
+    if (isLoggedIn()) {
+      loadDeliveryAddresses();
+    } else {
+      // 로그인하지 않은 경우에만 로컬 스토리지에서 불러오기
+      const savedAddress = getDeliveryAddress();
+      if (savedAddress) {
+        setDeliveryAddress(savedAddress);
+      }
     }
   }, [product]);
+
+  // 마이페이지 배송지 변경 감지 및 동기화
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+
+    // 초기 마운트 시 lastUpdate 설정
+    const currentUpdate = localStorage.getItem('deliveryAddressCurrentUpdate');
+    if (currentUpdate) {
+      localStorage.setItem('deliveryAddressLastUpdate', currentUpdate);
+    }
+
+    // 배송지 변경 이벤트 감지 함수
+    const checkDeliveryAddressUpdate = async () => {
+      const lastUpdate = localStorage.getItem('deliveryAddressLastUpdate');
+      const currentUpdate = localStorage.getItem('deliveryAddressCurrentUpdate');
+      
+      // 마이페이지에서 배송지가 변경되었는지 확인
+      if (currentUpdate && currentUpdate !== lastUpdate) {
+        localStorage.setItem('deliveryAddressLastUpdate', currentUpdate);
+        await loadDeliveryAddresses();
+      }
+    };
+
+    // 초기 확인
+    checkDeliveryAddressUpdate();
+
+    // 주기적으로 확인 (5초마다)
+    const interval = setInterval(checkDeliveryAddressUpdate, 5000);
+
+    // 페이지 포커스 시 확인
+    const handleFocus = () => {
+      checkDeliveryAddressUpdate();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  // setNewAddressFormRef 업데이트
+  useEffect(() => {
+    setNewAddressFormRef.current = setNewAddressForm;
+  }, []);
+
+  // 배송지 목록 불러오기
+  const loadDeliveryAddresses = async () => {
+    if (!isLoggedIn()) return;
+    setLoadingAddresses(true);
+    const result = await getDeliveryAddresses();
+    if (result.success && result.data) {
+      setDeliveryAddresses(result.data);
+      
+      // 기본 배송지가 있으면 자동 선택 (항상 최신 기본 배송지로 업데이트)
+      const defaultAddress = result.data.find(addr => addr.isDefault);
+      if (defaultAddress) {
+        const newAddress = {
+          postcode: defaultAddress.postcode,
+          address: defaultAddress.address,
+          detailAddress: defaultAddress.detailAddress || '',
+          recipient: defaultAddress.recipient,
+          phone: defaultAddress.phoneNumber
+        };
+        setDeliveryAddress(newAddress);
+        // 로컬 스토리지에도 저장
+        saveDeliveryAddress(newAddress);
+      } else if (result.data.length > 0) {
+        // 기본 배송지가 없으면 첫 번째 배송지 선택
+        const firstAddress = result.data[0];
+        const newAddress = {
+          postcode: firstAddress.postcode,
+          address: firstAddress.address,
+          detailAddress: firstAddress.detailAddress || '',
+          recipient: firstAddress.recipient,
+          phone: firstAddress.phoneNumber
+        };
+        setDeliveryAddress(newAddress);
+        saveDeliveryAddress(newAddress);
+      } else {
+        // 배송지가 없으면 현재 선택된 배송지도 삭제
+        setDeliveryAddress(null);
+        const { removeDeliveryAddress } = require('../utils/delivery');
+        removeDeliveryAddress();
+      }
+      
+      // 현재 선택된 배송지가 목록에 없는지 확인 (삭제된 경우)
+      if (deliveryAddress && result.data.length > 0) {
+        const currentAddressExists = result.data.some(addr => 
+          addr.postcode === deliveryAddress.postcode &&
+          addr.address === deliveryAddress.address &&
+          addr.recipient === deliveryAddress.recipient
+        );
+        
+        if (!currentAddressExists) {
+          // 현재 선택된 배송지가 삭제되었으므로 기본 배송지 또는 첫 번째 배송지로 변경
+          const defaultAddr = result.data.find(addr => addr.isDefault) || result.data[0];
+          if (defaultAddr) {
+            const newAddress = {
+              postcode: defaultAddr.postcode,
+              address: defaultAddr.address,
+              detailAddress: defaultAddr.detailAddress || '',
+              recipient: defaultAddr.recipient,
+              phone: defaultAddr.phoneNumber
+            };
+            setDeliveryAddress(newAddress);
+            saveDeliveryAddress(newAddress);
+          } else {
+            setDeliveryAddress(null);
+            const { removeDeliveryAddress } = require('../utils/delivery');
+            removeDeliveryAddress();
+          }
+        }
+      }
+    } else if (result.status === 401 || result.status === 403) {
+      // 인증 오류 시 배송지 초기화
+      setDeliveryAddress(null);
+    }
+    setLoadingAddresses(false);
+  };
 
   // 상품 문의 목록 불러오기
   useEffect(() => {
@@ -837,8 +975,84 @@ function ProductDetail() {
     }
   };
 
+  // 배송지 설정 모달 열기 (배송지 목록 선택)
   const handleAddressSet = () => {
-    // 다음 주소 API 사용
+    if (!isLoggedIn()) {
+      window.alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+    setShowDeliveryAddressModal(true);
+    loadDeliveryAddresses();
+  };
+
+  // 배송지 변경하기 (주소 검색 모달 직접 열기)
+  const handleChangeAddress = () => {
+    if (!isLoggedIn()) {
+      window.alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+    // 기존 배송지 정보를 폼에 채우기
+    if (deliveryAddress) {
+      setNewAddressForm({
+        postcode: deliveryAddress.postcode || '',
+        address: deliveryAddress.address || '',
+        detailAddress: deliveryAddress.detailAddress || '',
+        recipient: deliveryAddress.recipient || '',
+        phoneNumber: deliveryAddress.phone || '',
+        isDefault: false
+      });
+    } else {
+      setNewAddressForm({
+        postcode: '',
+        address: '',
+        detailAddress: '',
+        recipient: '',
+        phoneNumber: '',
+        isDefault: false
+      });
+    }
+    setShowAddAddressModal(true);
+  };
+
+  // 배송지 선택
+  const handleSelectDeliveryAddress = (address) => {
+    setDeliveryAddress({
+      postcode: address.postcode,
+      address: address.address,
+      detailAddress: address.detailAddress || '',
+      recipient: address.recipient,
+      phone: address.phoneNumber
+    });
+    // 로컬 스토리지에도 저장
+    saveDeliveryAddress({
+      postcode: address.postcode,
+      address: address.address,
+      detailAddress: address.detailAddress || '',
+      recipient: address.recipient,
+      phone: address.phoneNumber
+    });
+    setShowDeliveryAddressModal(false);
+    window.alert('배송지가 선택되었습니다.');
+  };
+
+  // 새 배송지 추가 모달 열기
+  const handleOpenAddAddressModal = () => {
+    setNewAddressForm({
+      postcode: '',
+      address: '',
+      detailAddress: '',
+      recipient: '',
+      phoneNumber: '',
+      isDefault: false
+    });
+    setShowAddAddressModal(true);
+    setShowDeliveryAddressModal(false);
+  };
+
+  // 주소 검색 (Daum Postcode API)
+  const handleSearchAddress = () => {
     if (!window.daum || !window.daum.Postcode) {
       window.alert('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
       return;
@@ -846,9 +1060,9 @@ function ProductDetail() {
 
     new window.daum.Postcode({
       oncomplete: function(data) {
-        // 주소 선택 완료 후 상세주소 입력 받기
+        // 주소 선택 완료 후 처리
         const fullAddress = data.address; // 선택한 주소
-        const extraAddress = ''; // 참고항목
+        let extraAddress = ''; // 참고항목
 
         // 법정동명이 있을 경우 추가
         if(data.bname !== '' && /[동|로|가]$/g.test(data.bname)){
@@ -863,48 +1077,87 @@ function ProductDetail() {
           extraAddress = ' (' + extraAddress + ')';
         }
 
-        // 상세주소 입력 받기
-        const detailAddress = window.prompt(`상세주소를 입력해주세요:\n\n기본주소: ${fullAddress}${extraAddress}`);
-        
-        if (detailAddress === null) {
-          return; // 취소한 경우
-        }
-
-        // 받는 분 이름 입력 받기
-        const recipient = window.prompt('받는 분 이름을 입력해주세요:') || '고객님';
-        
-        // 연락처 입력 받기
-        const phone = window.prompt('연락처를 입력해주세요:') || '';
-
-        // 최종 주소 조합 (상세주소가 있으면 추가)
-        const detailAddr = detailAddress.trim();
-        const finalAddress = detailAddr 
-          ? `${fullAddress}${extraAddress} ${detailAddr}`.trim()
-          : `${fullAddress}${extraAddress}`.trim();
-
-        const addressData = {
-          postcode: data.zonecode, // 우편번호
-          address: finalAddress,
-          roadAddress: data.roadAddress, // 도로명주소
-          jibunAddress: data.jibunAddress, // 지번주소
-          recipient: recipient,
-          phone: phone
-        };
-
-        const saved = saveDeliveryAddress(addressData);
-        if (saved) {
-          setDeliveryAddress(saved);
-          window.alert('배송지가 설정되었습니다.');
+        // 주소 정보 업데이트 (ref를 통해 최신 setter 사용)
+        const setter = setNewAddressFormRef.current;
+        if (setter) {
+          setter(prev => ({
+            ...prev,
+            postcode: data.zonecode,
+            address: `${fullAddress}${extraAddress}`.trim()
+          }));
         }
       },
       width: '100%',
-      height: '100%',
-      maxSuggestItems: 5
-    }).open({
-      q: '', // 검색어 (선택사항)
-      left: (window.screen.width / 2) - (500 / 2),
-      top: (window.screen.height / 2) - (600 / 2)
-    });
+      height: '100%'
+    }).open();
+  };
+
+  // 새 배송지 저장
+  const handleSaveNewAddress = async () => {
+    // 로그인 체크
+    if (!isLoggedIn()) {
+      window.alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    if (!newAddressForm.postcode || !newAddressForm.address || 
+        !newAddressForm.recipient || !newAddressForm.phoneNumber) {
+      window.alert('필수 항목을 모두 입력해주세요.');
+      return;
+    }
+
+    try {
+      const result = await createDeliveryAddress({
+        postcode: newAddressForm.postcode,
+        address: newAddressForm.address,
+        detailAddress: newAddressForm.detailAddress,
+        recipient: newAddressForm.recipient,
+        phoneNumber: newAddressForm.phoneNumber,
+        isDefault: newAddressForm.isDefault
+      });
+
+      if (result.success) {
+        // 배송지 정보 업데이트 (새로운 주소로 변경)
+        const updatedAddress = {
+          postcode: newAddressForm.postcode,
+          address: newAddressForm.address,
+          detailAddress: newAddressForm.detailAddress || '',
+          recipient: newAddressForm.recipient,
+          phone: newAddressForm.phoneNumber
+        };
+        
+        setDeliveryAddress(updatedAddress);
+        
+        // 로컬 스토리지에도 저장
+        saveDeliveryAddress(updatedAddress);
+        
+        // 배송지 목록 다시 불러오기
+        await loadDeliveryAddresses();
+        
+        // 배송지 변경 이벤트 발생 (마이페이지에 알림)
+        localStorage.setItem('deliveryAddressCurrentUpdate', Date.now().toString());
+        
+        window.alert('배송지가 저장되었습니다.');
+        setShowAddAddressModal(false);
+        
+        // 배송지 목록 모달이 열려있으면 닫기
+        if (showDeliveryAddressModal) {
+          setShowDeliveryAddressModal(false);
+        }
+      } else {
+        // Unauthorized 오류 처리
+        if (result.status === 401 || result.status === 403) {
+          window.alert('인증이 만료되었습니다. 다시 로그인해주세요.');
+          navigate('/login');
+        } else {
+          window.alert(result.message || '배송지 저장에 실패했습니다.');
+        }
+      }
+    } catch (error) {
+      console.error('배송지 저장 오류:', error);
+      window.alert('배송지 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
   };
 
   const handleRatingClick = () => {
@@ -1460,7 +1713,7 @@ function ProductDetail() {
                     <span className="delivery-phone">연락처: {deliveryAddress.phone}</span>
                   )}
                 </div>
-                <button className="delivery-change-btn" onClick={handleAddressSet}>
+                <button className="delivery-change-btn" onClick={handleChangeAddress}>
                   변경하기
                 </button>
                 <span className="delivery-date">12/22(월) 도착보장 (강남구 역삼동 기준)</span>
@@ -1807,6 +2060,182 @@ function ProductDetail() {
               </button>
               <button className="inquiry-modal-btn submit" onClick={handleSubmitReply}>
                 확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 배송지 선택 모달 */}
+      {showDeliveryAddressModal && (
+        <div className="delivery-address-modal-overlay" onClick={() => setShowDeliveryAddressModal(false)}>
+          <div className="delivery-address-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="delivery-address-modal-header">
+              <h3>배송지 선택</h3>
+              <button className="delivery-address-modal-close" onClick={() => setShowDeliveryAddressModal(false)}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div className="delivery-address-modal-body">
+              {loadingAddresses ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                  <p>배송지를 불러오는 중...</p>
+                </div>
+              ) : deliveryAddresses.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                  <p>등록된 배송지가 없습니다.</p>
+                  <button 
+                    className="delivery-address-add-btn"
+                    onClick={handleOpenAddAddressModal}
+                    style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    + 배송지 추가
+                  </button>
+                </div>
+              ) : (
+                <div className="delivery-address-list">
+                  {deliveryAddresses.map((address) => (
+                    <div 
+                      key={address.id} 
+                      className={`delivery-address-item ${address.isDefault ? 'default' : ''}`}
+                      onClick={() => handleSelectDeliveryAddress(address)}
+                      style={{ cursor: 'pointer', padding: '1rem', border: '1px solid #ddd', borderRadius: '4px', marginBottom: '0.5rem' }}
+                    >
+                      {address.isDefault && (
+                        <div style={{ color: '#007bff', fontSize: '0.8rem', marginBottom: '0.5rem' }}>기본 배송지</div>
+                      )}
+                      <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{address.recipient}</div>
+                      <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                        [{address.postcode}] {address.address} {address.detailAddress || ''}
+                      </div>
+                      <div style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>{address.phoneNumber}</div>
+                    </div>
+                  ))}
+                  <button 
+                    className="delivery-address-add-btn"
+                    onClick={handleOpenAddAddressModal}
+                    style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', backgroundColor: '#f0f0f0', border: '1px dashed #ddd', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    + 새 배송지 추가
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 새 배송지 추가/변경 모달 */}
+      {showAddAddressModal && (
+        <div className="delivery-address-modal-overlay" onClick={() => setShowAddAddressModal(false)}>
+          <div className="delivery-address-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="delivery-address-modal-header">
+              <h3>{deliveryAddress ? '배송지 변경' : '배송지 추가'}</h3>
+              <button className="delivery-address-modal-close" onClick={() => setShowAddAddressModal(false)}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div className="delivery-address-modal-body">
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">
+                  우편번호 <span className="required">*</span>
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={newAddressForm.postcode}
+                    onChange={(e) => setNewAddressForm({ ...newAddressForm, postcode: e.target.value })}
+                    placeholder="우편번호"
+                    className="form-input"
+                    maxLength="10"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSearchAddress}
+                    style={{ padding: '0.5rem 1rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    주소 검색
+                  </button>
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">
+                  주소 <span className="required">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newAddressForm.address}
+                  onChange={(e) => setNewAddressForm({ ...newAddressForm, address: e.target.value })}
+                  placeholder="주소"
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">상세주소</label>
+                <input
+                  type="text"
+                  value={newAddressForm.detailAddress}
+                  onChange={(e) => setNewAddressForm({ ...newAddressForm, detailAddress: e.target.value })}
+                  placeholder="상세주소 (선택사항)"
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">
+                  수령인 <span className="required">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newAddressForm.recipient}
+                  onChange={(e) => setNewAddressForm({ ...newAddressForm, recipient: e.target.value })}
+                  placeholder="수령인 이름"
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">
+                  전화번호 <span className="required">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={newAddressForm.phoneNumber}
+                  onChange={(e) => setNewAddressForm({ ...newAddressForm, phoneNumber: e.target.value })}
+                  placeholder="010-1234-5678"
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={newAddressForm.isDefault}
+                    onChange={(e) => setNewAddressForm({ ...newAddressForm, isDefault: e.target.checked })}
+                  />
+                  <span>기본 배송지로 설정</span>
+                </label>
+              </div>
+            </div>
+            <div className="delivery-address-modal-footer" style={{ display: 'flex', gap: '0.5rem', padding: '1rem', borderTop: '1px solid #ddd' }}>
+              <button
+                className="delivery-address-modal-btn cancel"
+                onClick={() => setShowAddAddressModal(false)}
+                style={{ flex: 1, padding: '0.75rem', backgroundColor: '#f0f0f0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                취소
+              </button>
+              <button
+                className="delivery-address-modal-btn submit"
+                onClick={handleSaveNewAddress}
+                style={{ flex: 1, padding: '0.75rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                {deliveryAddress ? '저장하기' : '추가하기'}
               </button>
             </div>
           </div>

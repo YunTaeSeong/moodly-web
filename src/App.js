@@ -54,6 +54,7 @@ function App() {
             <Route path="/mypage/reviews" element={<MyPage />} />
             <Route path="/mypage/inquiries" element={<MyPage />} />
             <Route path="/mypage/coupons" element={<MyPage />} />
+            <Route path="/mypage/delivery" element={<MyPage />} />
             <Route path="/hotdeal" element={<HotDealDetail />} />
             <Route path="/todayspecial" element={<TodaySpecialDetail />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />

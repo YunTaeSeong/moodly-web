@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
@@ -8,7 +8,7 @@ import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from 
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
-import { changeMyPassword } from '../utils/api';
+import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress } from '../utils/api';
 import { getUserIdFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { deleteCookie } from '../utils/cookie';
@@ -28,6 +28,7 @@ function MyPage() {
     if (path === '/mypage/reviews') return 'review'; // 경로는 reviews지만 메뉴 ID는 review
     if (path === '/mypage/inquiries') return 'inquiry'; // 경로는 inquiries지만 메뉴 ID는 inquiry
     if (path === '/mypage/coupons') return 'coupon';
+    if (path === '/mypage/delivery') return 'delivery';
     return 'home'; // 기본값
   };
   
@@ -55,6 +56,23 @@ function MyPage() {
   const [showEditInquiryModal, setShowEditInquiryModal] = useState(false);
   const [editingInquiryId, setEditingInquiryId] = useState(null);
   const [editingInquiryContent, setEditingInquiryContent] = useState('');
+  const [deliveryAddresses, setDeliveryAddresses] = useState([]);
+  const [showDeliveryAddressModal, setShowDeliveryAddressModal] = useState(false);
+  const [editingDeliveryAddress, setEditingDeliveryAddress] = useState(null);
+  const [deliveryAddressForm, setDeliveryAddressForm] = useState({
+    postcode: '',
+    address: '',
+    detailAddress: '',
+    recipient: '',
+    phoneNumber: '',
+    isDefault: false
+  });
+  const setDeliveryAddressFormRef = useRef(setDeliveryAddressForm);
+  
+  // setDeliveryAddressForm ref 업데이트
+  useEffect(() => {
+    setDeliveryAddressFormRef.current = setDeliveryAddressForm;
+  }, []);
 
   // 찜한 상품 목록 및 주문 내역 가져오기
   useEffect(() => {
@@ -120,6 +138,22 @@ function MyPage() {
       setPasswordSuccess(false);
     }
   }, [activeMenu]);
+
+  // 배송지 목록 조회
+  useEffect(() => {
+    if (isLoggedIn() && activeMenu === 'delivery') {
+      loadDeliveryAddresses();
+    }
+  }, [activeMenu]);
+
+  const loadDeliveryAddresses = async () => {
+    const result = await getDeliveryAddresses();
+    if (result.success && result.data) {
+      setDeliveryAddresses(result.data);
+      // 배송지 변경 이벤트 발생 (다른 페이지에 알림)
+      localStorage.setItem('deliveryAddressCurrentUpdate', Date.now().toString());
+    }
+  };
 
   // 찜한 상품 제거 핸들러
   const handleRemoveWishlist = (productId) => {
@@ -372,7 +406,8 @@ function MyPage() {
       'wishlist': '/mypage/wishlist',
       'review': '/mypage/reviews',
       'inquiry': '/mypage/inquiries',
-      'coupon': '/mypage/coupons'
+      'coupon': '/mypage/coupons',
+      'delivery': '/mypage/delivery'
     };
     return pathMap[menuId] || '/mypage';
   };
@@ -390,7 +425,8 @@ function MyPage() {
     { id: 'wishlist', label: '찜한 상품' },
     { id: 'review', label: '리뷰 관리' },
     { id: 'inquiry', label: '상품 문의' },
-    { id: 'coupon', label: '쿠폰함' }
+    { id: 'coupon', label: '쿠폰함' },
+    { id: 'delivery', label: '배송지 관리' }
   ];
 
   // 비밀번호 변경 핸들러
@@ -1016,6 +1052,310 @@ function MyPage() {
                 </div>
               )}
             </div>
+          </div>
+        );
+      case 'delivery':
+        return (
+          <div className="mypage-content-section">
+            <h2>배송지 관리</h2>
+            <div className="delivery-address-header">
+              <button 
+                className="delivery-address-add-btn"
+                onClick={() => {
+                  setEditingDeliveryAddress(null);
+                  setDeliveryAddressForm({
+                    postcode: '',
+                    address: '',
+                    detailAddress: '',
+                    recipient: '',
+                    phoneNumber: '',
+                    isDefault: false
+                  });
+                  setShowDeliveryAddressModal(true);
+                }}
+              >
+                + 배송지 추가
+              </button>
+            </div>
+            {deliveryAddresses.length === 0 ? (
+              <div className="mypage-empty">
+                <p>등록된 배송지가 없습니다.</p>
+              </div>
+            ) : (
+              <div className="delivery-address-list">
+                {deliveryAddresses.map((address) => (
+                  <div key={address.id} className={`delivery-address-item ${address.isDefault ? 'default' : ''}`}>
+                    {address.isDefault && (
+                      <div className="delivery-address-default-badge">기본 배송지</div>
+                    )}
+                    <div className="delivery-address-info">
+                      <div className="delivery-address-recipient">
+                        <strong>{address.recipient}</strong>
+                        <span className="delivery-address-phone">{address.phoneNumber}</span>
+                      </div>
+                      <div className="delivery-address-full">
+                        <span className="delivery-address-postcode">[{address.postcode}]</span>
+                        <span className="delivery-address-address">{address.address}</span>
+                        {address.detailAddress && (
+                          <span className="delivery-address-detail">{address.detailAddress}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="delivery-address-actions">
+                      {!address.isDefault && (
+                        <button
+                          className="delivery-address-set-default-btn"
+                          onClick={async () => {
+                            const result = await setDefaultDeliveryAddress(address.id);
+                            if (result.success) {
+                              window.alert('기본 배송지로 설정되었습니다.');
+                              await loadDeliveryAddresses();
+                              // 배송지 변경 이벤트 발생
+                              localStorage.setItem('deliveryAddressCurrentUpdate', Date.now().toString());
+                            } else {
+                              window.alert(result.message || '기본 배송지 설정에 실패했습니다.');
+                            }
+                          }}
+                        >
+                          기본 배송지로 설정
+                        </button>
+                      )}
+                      <button
+                        className="delivery-address-edit-btn"
+                        onClick={() => {
+                          setEditingDeliveryAddress(address);
+                          setDeliveryAddressForm({
+                            postcode: address.postcode,
+                            address: address.address,
+                            detailAddress: address.detailAddress || '',
+                            recipient: address.recipient,
+                            phoneNumber: address.phoneNumber,
+                            isDefault: address.isDefault
+                          });
+                          setShowDeliveryAddressModal(true);
+                        }}
+                      >
+                        수정
+                      </button>
+                      <button
+                        className="delivery-address-delete-btn"
+                        onClick={async () => {
+                          if (window.confirm('배송지를 삭제하시겠습니까?')) {
+                            const result = await deleteDeliveryAddress(address.id);
+                            if (result.success) {
+                              window.alert('배송지가 삭제되었습니다.');
+                              await loadDeliveryAddresses();
+                              // 배송지 변경 이벤트 발생
+                              localStorage.setItem('deliveryAddressCurrentUpdate', Date.now().toString());
+                            } else {
+                              window.alert(result.message || '배송지 삭제에 실패했습니다.');
+                            }
+                          }
+                        }}
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 배송지 추가/수정 모달 */}
+            {showDeliveryAddressModal && (
+              <div className="delivery-address-modal-overlay" onClick={() => setShowDeliveryAddressModal(false)}>
+                <div className="delivery-address-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="delivery-address-modal-header">
+                    <h3>{editingDeliveryAddress ? '배송지 수정' : '배송지 추가'}</h3>
+                    <button className="delivery-address-modal-close" onClick={() => setShowDeliveryAddressModal(false)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="delivery-address-modal-body">
+                    <div className="form-group">
+                      <label className="form-label">
+                        우편번호 <span className="required">*</span>
+                      </label>
+                      <div className="postcode-input-group">
+                        <input
+                          type="text"
+                          value={deliveryAddressForm.postcode}
+                          onChange={(e) => setDeliveryAddressForm({ ...deliveryAddressForm, postcode: e.target.value })}
+                          placeholder="우편번호"
+                          className="form-input"
+                          maxLength="10"
+                        />
+                        <button
+                          type="button"
+                          className="postcode-search-btn"
+                          onClick={() => {
+                            // 다음 주소 API 사용
+                            if (!window.daum || !window.daum.Postcode) {
+                              window.alert('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+                              return;
+                            }
+
+                            new window.daum.Postcode({
+                              oncomplete: function(data) {
+                                // 주소 선택 완료 후 처리
+                                const fullAddress = data.address; // 선택한 주소
+                                let extraAddress = ''; // 참고항목
+
+                                // 법정동명이 있을 경우 추가
+                                if(data.bname !== '' && /[동|로|가]$/g.test(data.bname)){
+                                  extraAddress += data.bname;
+                                }
+                                // 건물명이 있을 경우 추가
+                                if(data.buildingName !== '' && data.buildingName !== 'N'){
+                                  extraAddress += (extraAddress !== '' ? ', ' + data.buildingName : data.buildingName);
+                                }
+                                // 표시할 참고항목이 있을 경우, 괄호까지 추가한 최종 문자열을 만든다.
+                                if(extraAddress !== ''){
+                                  extraAddress = ' (' + extraAddress + ')';
+                                }
+
+                                // 주소 정보 업데이트 (ref를 통해 최신 setter 사용)
+                                const setter = setDeliveryAddressFormRef.current;
+                                if (setter) {
+                                  setter(prev => ({
+                                    ...prev,
+                                    postcode: data.zonecode,
+                                    address: `${fullAddress}${extraAddress}`.trim()
+                                  }));
+                                }
+                              },
+                              width: '100%',
+                              height: '100%'
+                            }).open();
+                          }}
+                        >
+                          주소 검색
+                        </button>
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        주소 <span className="required">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={deliveryAddressForm.address}
+                        onChange={(e) => setDeliveryAddressForm({ ...deliveryAddressForm, address: e.target.value })}
+                        placeholder="주소"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">상세주소</label>
+                      <input
+                        type="text"
+                        value={deliveryAddressForm.detailAddress}
+                        onChange={(e) => setDeliveryAddressForm({ ...deliveryAddressForm, detailAddress: e.target.value })}
+                        placeholder="상세주소 (선택사항)"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        수령인 <span className="required">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={deliveryAddressForm.recipient}
+                        onChange={(e) => setDeliveryAddressForm({ ...deliveryAddressForm, recipient: e.target.value })}
+                        placeholder="수령인 이름"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        전화번호 <span className="required">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={deliveryAddressForm.phoneNumber}
+                        onChange={(e) => setDeliveryAddressForm({ ...deliveryAddressForm, phoneNumber: e.target.value })}
+                        placeholder="010-1234-5678"
+                        className="form-input"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={deliveryAddressForm.isDefault}
+                          onChange={(e) => setDeliveryAddressForm({ ...deliveryAddressForm, isDefault: e.target.checked })}
+                          className="form-checkbox"
+                        />
+                        <span>기본 배송지로 설정</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="delivery-address-modal-footer">
+                    <button
+                      className="delivery-address-modal-btn cancel"
+                      onClick={() => setShowDeliveryAddressModal(false)}
+                    >
+                      취소
+                    </button>
+                    <button
+                      className="delivery-address-modal-btn submit"
+                      onClick={async () => {
+                        if (!deliveryAddressForm.postcode || !deliveryAddressForm.address || 
+                            !deliveryAddressForm.recipient || !deliveryAddressForm.phoneNumber) {
+                          window.alert('필수 항목을 모두 입력해주세요.');
+                          return;
+                        }
+
+                        let result;
+                        if (editingDeliveryAddress) {
+                          result = await updateDeliveryAddress(editingDeliveryAddress.id, {
+                            postcode: deliveryAddressForm.postcode,
+                            address: deliveryAddressForm.address,
+                            detailAddress: deliveryAddressForm.detailAddress,
+                            recipient: deliveryAddressForm.recipient,
+                            phoneNumber: deliveryAddressForm.phoneNumber
+                          });
+                          if (result.success) {
+                            if (deliveryAddressForm.isDefault) {
+                              await setDefaultDeliveryAddress(editingDeliveryAddress.id);
+                            }
+                            window.alert('배송지가 수정되었습니다.');
+                          } else {
+                            window.alert(result.message || '배송지 수정에 실패했습니다.');
+                            return;
+                          }
+                        } else {
+                          result = await createDeliveryAddress({
+                            postcode: deliveryAddressForm.postcode,
+                            address: deliveryAddressForm.address,
+                            detailAddress: deliveryAddressForm.detailAddress,
+                            recipient: deliveryAddressForm.recipient,
+                            phoneNumber: deliveryAddressForm.phoneNumber,
+                            isDefault: deliveryAddressForm.isDefault
+                          });
+                          if (result.success) {
+                            window.alert('배송지가 추가되었습니다.');
+                          } else {
+                            window.alert(result.message || '배송지 추가에 실패했습니다.');
+                            return;
+                          }
+                        }
+                        setShowDeliveryAddressModal(false);
+                        await loadDeliveryAddresses();
+                        // 배송지 변경 이벤트 발생
+                        localStorage.setItem('deliveryAddressCurrentUpdate', Date.now().toString());
+                      }}
+                    >
+                      {editingDeliveryAddress ? '수정하기' : '추가하기'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       default:

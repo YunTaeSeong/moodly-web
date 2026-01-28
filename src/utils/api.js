@@ -818,3 +818,169 @@ export const deleteSelectedCartItems = async (cartIds) => {
     };
   }
 };
+
+// 배송지 목록 조회
+export const getDeliveryAddresses = async () => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/user/delivery-addresses`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.message || '배송지 조회에 실패했습니다.', status: response.status };
+    }
+
+    const data = await response.json();
+    return { success: true, data: data || [] };
+  } catch (error) {
+    console.error('배송지 조회 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+// 배송지 생성
+export const createDeliveryAddress = async (addressData) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/user/delivery-addresses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(addressData)
+    });
+
+    if (!response.ok) {
+      let errorData = {};
+      try {
+        const text = await response.text();
+        errorData = text ? JSON.parse(text) : {};
+      } catch (e) {
+        console.error('에러 응답 파싱 실패:', e);
+      }
+      
+      // 401 또는 403 오류인 경우 명확한 메시지 반환
+      if (response.status === 401 || response.status === 403) {
+        return { 
+          success: false, 
+          message: '인증이 만료되었습니다. 다시 로그인해주세요.', 
+          status: response.status 
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: errorData.message || errorData.error || '배송지 생성에 실패했습니다.', 
+        status: response.status 
+      };
+    }
+
+    const data = await response.json();
+    return { success: true, data: data };
+  } catch (error) {
+    console.error('배송지 생성 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+// 배송지 수정
+export const updateDeliveryAddress = async (id, addressData) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/user/delivery-addresses/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(addressData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.message || '배송지 수정에 실패했습니다.', status: response.status };
+    }
+
+    const data = await response.json();
+    return { success: true, data: data };
+  } catch (error) {
+    console.error('배송지 수정 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+// 배송지 삭제
+export const deleteDeliveryAddress = async (id) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/user/delivery-addresses/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.message || '배송지 삭제에 실패했습니다.', status: response.status };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('배송지 삭제 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+// 기본 배송지 설정
+export const setDefaultDeliveryAddress = async (id) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/user/delivery-addresses/${id}/default`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.message || '기본 배송지 설정에 실패했습니다.', status: response.status };
+    }
+
+    const data = await response.json();
+    return { success: true, data: data };
+  } catch (error) {
+    console.error('기본 배송지 설정 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
