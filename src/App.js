@@ -9,6 +9,7 @@ import CategoryDetail from './components/CategoryDetail';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import Cart from './components/Cart';
+import OrderCheckout from './components/OrderCheckout';
 import MyPage from './components/MyPage';
 import PaymentSuccess from './components/PaymentSuccess';
 import PaymentFail from './components/PaymentFail';
@@ -47,6 +48,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cart" element={<Cart />} />
+            <Route path="/order/checkout" element={<OrderCheckout />} />
             <Route path="/mypage" element={<MyPage />} />
             <Route path="/mypage/security" element={<MyPage />} />
             <Route path="/mypage/orders" element={<MyPage />} />

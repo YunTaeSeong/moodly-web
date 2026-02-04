@@ -950,8 +950,25 @@ function ProductDetail() {
     }
   };
 
-  const handleBuyNow = async () => {
-    handleOpenCouponModal();
+  const handleBuyNow = () => {
+    if (!product) return;
+    if (quantity < 1) {
+      window.alert('수량을 선택해주세요.');
+      return;
+    }
+    navigate('/order/checkout', {
+      state: {
+        from: 'product',
+        product: {
+          id: product.id,
+          name: product.name,
+          price: product.price ?? product.originalPrice,
+          image: product.image,
+          productId: product.id
+        },
+        quantity
+      }
+    });
   };
 
   const handleCouponReceive = () => {
@@ -1611,10 +1628,9 @@ function ProductDetail() {
           <img src={product.image} alt={product.name} />
         </div>
         <div className="product-detail-info">
-          {/* 판매자 정보 */}
+          {/* 판매자 정보 (브랜드만 표시) */}
           <div className="seller-info">
             <span className="seller-name">Moodly</span>
-            <span className="seller-badge">공식</span>
           </div>
 
           {/* 상품명 및 아이콘 */}
@@ -1668,110 +1684,31 @@ function ProductDetail() {
             )}
           </div>
 
-          {/* 쿠폰 받기 */}
-          <div className="coupon-section">
-            {!couponReceived ? (
-              <>
-                <button className="coupon-button" onClick={handleCouponReceive}>
-                  최대 {product.discount || 15}% 할인 쿠폰을 받으세요!
-                </button>
-                <button className="coupon-download-btn" onClick={handleCouponReceive}>
-                  ↓ 쿠폰받기
-                </button>
-              </>
-            ) : (
-              <div className="coupon-received">
-                <span>✓ 쿠폰이 발급되었습니다!</span>
-              </div>
-            )}
-          </div>
+          {/* 상단에서는 배송/수량/선택을 노출하지 않고, 가격 바로 아래에 버튼만 배치 */}
 
-          {/* 배송 정보 */}
-          <div className="delivery-section">
-            <div className="delivery-header">
-              <svg className="delivery-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                <circle cx="12" cy="10" r="3"></circle>
-              </svg>
-              <span>배송 받을 주소를 설정해보세요.</span>
-              <button className="address-set-btn" onClick={handleAddressSet}>
-                설정하기
-              </button>
-            </div>
-            {deliveryAddress ? (
-              <div className="delivery-address">
-                <div className="delivery-address-info">
-                  <span className="delivery-address-label">✓ 배송지:</span>
-                  {deliveryAddress.postcode && (
-                    <span className="delivery-postcode">[{deliveryAddress.postcode}]</span>
-                  )}
-                  <span className="delivery-address-text">{deliveryAddress.address}</span>
-                  {deliveryAddress.recipient && (
-                    <span className="delivery-recipient">받는 분: {deliveryAddress.recipient}</span>
-                  )}
-                  {deliveryAddress.phone && (
-                    <span className="delivery-phone">연락처: {deliveryAddress.phone}</span>
-                  )}
-                </div>
-                <button className="delivery-change-btn" onClick={handleChangeAddress}>
-                  변경하기
-                </button>
-                <span className="delivery-date">12/22(월) 도착보장 (강남구 역삼동 기준)</span>
-              </div>
-            ) : (
-              <div className="delivery-info">
-                <span className="delivery-date">12/22(월) 도착보장 (강남구 역삼동 기준)</span>
-                <svg className="info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
-              </div>
-            )}
-            <div className="free-shipping">무료배송 (1.5만원 이상 구매시)</div>
-          </div>
-
-          {/* 수량 선택 */}
-          <div className="quantity-section">
-            <label>수량</label>
-            <div className="quantity-controls">
+          {/* 수량 + 장바구니 / 구매하기 */}
+          <div className="product-detail-actions">
+            <div className="product-detail-quantity-inline">
               <button 
-                className="quantity-btn" 
+                className="quantity-btn-inline" 
                 onClick={() => handleQuantityChange(-1)}
                 disabled={quantity <= 1}
               >
                 -
               </button>
-              <span className="quantity-value">{quantity}</span>
+              <span className="quantity-value-inline">{quantity}</span>
               <button 
-                className="quantity-btn" 
+                className="quantity-btn-inline" 
                 onClick={() => handleQuantityChange(1)}
               >
                 +
               </button>
             </div>
-          </div>
-
-          {/* 선택 버튼 및 선택 정보 */}
-          <div className="select-section">
-            <button className="select-button" onClick={handleSelect}>
-              선택
-            </button>
-            {selectedTotal && (
-              <div className="selected-info">
-                <span>선택한 상품: {selectedTotal.quantity}개</span>
-                <span className="selected-total">총 {selectedTotal.total.toLocaleString()}원</span>
-              </div>
-            )}
-          </div>
-
-          {/* 장바구니 및 구매하기 */}
-          <div className="product-detail-actions">
             <button className="add-to-cart-button" onClick={handleAddToCart}>
               장바구니
             </button>
             <button className="buy-now-button" onClick={handleBuyNow}>
-              구매하기
+              결제하기
             </button>
           </div>
         </div>

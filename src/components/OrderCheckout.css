@@ -1,0 +1,855 @@
+/* 주문/결제 페이지 - 네이버·쿠팡 스타일 유사 */
+.order-checkout-page {
+  min-height: 60vh;
+  padding: 24px 0 48px;
+  background: #f5f5f5;
+}
+
+.order-checkout-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.order-checkout-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: #222;
+}
+
+.order-checkout-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.order-checkout-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.order-checkout-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #222;
+  margin: 0;
+}
+
+.delivery-change-btn-header {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.delivery-change-btn-header:hover {
+  background-color: #2980b9;
+}
+
+/* 주문 상품 목록 */
+.order-checkout-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-checkout-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.2s;
+}
+
+.order-checkout-item:hover {
+  background: #f8f9fa;
+  border-radius: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.order-checkout-item:last-child {
+  border-bottom: none;
+}
+
+.order-checkout-item-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #f8f8f8;
+}
+
+.order-checkout-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-checkout-item-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #222;
+}
+
+.order-checkout-item-option {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.order-checkout-item-price {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #222;
+}
+
+/* 배송지 - ProductDetail 스타일 */
+.order-checkout-delivery {
+  min-height: 60px;
+}
+
+.delivery-address-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.delivery-address-empty svg {
+  width: 20px;
+  height: 20px;
+  color: #999;
+}
+
+.address-set-btn {
+  margin-left: auto;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.address-set-btn:hover {
+  background-color: #2980b9;
+}
+
+.delivery-address {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 1rem;
+  background-color: #e8f4f8;
+  border-radius: 6px;
+}
+
+.delivery-address-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.delivery-address-label {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 0.9rem;
+}
+
+.delivery-postcode {
+  color: #3498db;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-left: 0.3rem;
+}
+
+.delivery-address-text {
+  color: #2c3e50;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-top: 0.3rem;
+  display: block;
+}
+
+.delivery-recipient,
+.delivery-phone {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.delivery-change-btn {
+  align-self: flex-start;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 0.5rem;
+}
+
+.delivery-change-btn:hover {
+  background-color: #2980b9;
+}
+
+/* 배송지 모달 */
+.delivery-address-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.delivery-address-modal {
+  background: #fff;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.delivery-address-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.delivery-address-modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.delivery-address-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #666;
+}
+
+.delivery-address-modal-close:hover {
+  color: #222;
+}
+
+.delivery-address-modal-body {
+  padding: 20px;
+}
+
+.delivery-address-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.delivery-address-item {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.delivery-address-item.default {
+  border-color: #007bff;
+}
+
+.delivery-address-add-btn {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: #f0f0f0;
+  border: 1px dashed #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #222;
+}
+
+.form-label .required {
+  color: #e53935;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.delivery-address-modal-footer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-top: 1px solid #ddd;
+}
+
+.delivery-address-modal-btn {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.delivery-address-modal-btn.cancel {
+  background-color: #f0f0f0;
+  color: #444;
+}
+
+.delivery-address-modal-btn.submit {
+  background-color: #007bff;
+  color: white;
+}
+
+/* 쿠폰 */
+.order-checkout-coupon {
+  min-height: 60px;
+}
+
+.order-checkout-no-coupon {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.order-checkout-coupon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.order-checkout-coupon-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.order-checkout-coupon-item:hover,
+.order-checkout-coupon-item.selected {
+  border-color: #0066ff;
+  background: #f0f7ff;
+}
+
+.order-checkout-coupon-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-checkout-coupon-name {
+  font-weight: 500;
+  color: #222;
+  font-size: 0.95rem;
+}
+
+.order-checkout-coupon-discount {
+  font-size: 0.85rem;
+  color: #0066ff;
+  font-weight: 500;
+}
+
+/* 쿠폰 모달 */
+.coupon-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.coupon-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.coupon-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.coupon-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+}
+
+.coupon-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #666;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coupon-modal-close:hover {
+  color: #222;
+}
+
+.coupon-modal-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.coupon-modal-body {
+  padding: 24px;
+  flex: 1;
+}
+
+/* 현재 할인 상태 */
+.coupon-current-discount {
+  margin-bottom: 20px;
+}
+
+.coupon-discount-amount-large {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2e7d32;
+  margin-bottom: 4px;
+}
+
+.coupon-discount-status {
+  font-size: 0.95rem;
+  color: #222;
+}
+
+/* 판매자/배송 정보 */
+.coupon-seller-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 20px;
+}
+
+.coupon-seller-name {
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.coupon-delivery-status {
+  font-size: 0.9rem;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+/* 상품 정보 카드 */
+.coupon-product-card {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.coupon-product-image-section {
+  flex-shrink: 0;
+}
+
+.coupon-product-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.coupon-product-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.coupon-product-name {
+  font-size: 0.9rem;
+  color: #222;
+  line-height: 1.4;
+}
+
+.coupon-product-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coupon-option-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: #e0e0e0;
+  color: #666;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.coupon-option-detail {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.coupon-product-price {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coupon-original-price {
+  font-size: 0.85rem;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.coupon-discounted-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #222;
+}
+
+/* 할인 적용 옵션 */
+.coupon-options-section {
+  margin-bottom: 24px;
+}
+
+.coupon-options-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #222;
+  margin: 0 0 16px 0;
+}
+
+.coupon-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.coupon-option-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.coupon-option-item:hover {
+  border-color: #bbb;
+  background-color: #f8f9fa;
+}
+
+.coupon-option-item.selected {
+  border-color: #2e7d32;
+  background-color: #e8f5e9;
+}
+
+.coupon-option-item input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #2e7d32;
+}
+
+.coupon-option-content {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.coupon-option-label {
+  font-size: 0.95rem;
+  color: #222;
+}
+
+.coupon-option-discount {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+/* 하단 적용 버튼 */
+.coupon-modal-footer {
+  padding: 16px 24px 24px;
+  border-top: 1px solid #eee;
+}
+
+.coupon-apply-btn {
+  width: 100%;
+  padding: 16px;
+  background-color: #c8e6c9;
+  color: #1b5e20;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.coupon-apply-btn:hover:not(:disabled) {
+  background-color: #a5d6a7;
+}
+
+.coupon-apply-btn:disabled {
+  background-color: #e0e0e0;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* 결제 금액 요약 */
+.order-checkout-summary .order-checkout-summary-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.order-checkout-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  color: #444;
+  padding: 8px 0;
+}
+
+.order-checkout-summary-row.coupon-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.coupon-label-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coupon-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #222;
+  font-weight: 500;
+}
+
+.coupon-help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  color: #666;
+  font-size: 0.75rem;
+  cursor: help;
+  margin-left: 2px;
+}
+
+.coupon-change-btn {
+  padding: 4px 12px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.coupon-change-btn:hover {
+  background-color: #f5f5f5;
+  border-color: #bbb;
+}
+
+.coupon-discount-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coupon-max-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.coupon-discount-amount {
+  color: #1976d2;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.coupon-none {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.order-checkout-summary-row.total-row {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #e8ffe8;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+.order-checkout-total-amount {
+  color: #2e7d32;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+/* 버튼 */
+.order-checkout-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 0 4px;
+}
+
+.order-checkout-btn-back {
+  flex: 1;
+  padding: 14px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #444;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.order-checkout-btn-back:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.order-checkout-btn-pay {
+  flex: 2;
+  padding: 14px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #0066ff;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.order-checkout-btn-pay:hover:not(:disabled) {
+  background: #0052cc;
+}
+
+.order-checkout-btn-pay:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* 빈 상태 / 로딩 */
+.order-checkout-loading,
+.order-checkout-empty {
+  max-width: 400px;
+  margin: 48px auto;
+  padding: 48px 24px;
+  text-align: center;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.order-checkout-empty h2 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+  color: #222;
+}
+
+.order-checkout-empty p {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.order-checkout-empty .order-checkout-btn-back {
+  max-width: 200px;
+}

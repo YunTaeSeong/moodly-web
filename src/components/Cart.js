@@ -417,7 +417,23 @@ function Cart() {
                   <span className="total-amount">{total.toLocaleString()}원</span>
                 </div>
               </div>
-              <button className="order-button">
+              <button
+                className="order-button"
+                onClick={() => {
+                  const selected = cartItems.filter(item => item.checked);
+                  if (selected.length === 0) {
+                    window.alert('주문할 상품을 선택해주세요.');
+                    return;
+                  }
+                  navigate('/order/checkout', {
+                    state: {
+                      from: 'cart',
+                      items: selected,
+                      cartIds: selected.map(item => item.cartId)
+                    }
+                  });
+                }}
+              >
                 주문하기
               </button>
             </div>
