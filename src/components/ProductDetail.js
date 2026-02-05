@@ -782,7 +782,7 @@ function ProductDetail() {
               ? '백엔드 서버가 실행 중인지 확인해주세요.'
               : '상품 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.'}
           </p>
-          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          {/* <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
             <button onClick={() => navigate('/')} className="back-button">
               홈으로 돌아가기
             </button>
@@ -793,7 +793,7 @@ function ProductDetail() {
             >
               새로고침
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
     );
@@ -2090,6 +2090,7 @@ function ProductDetail() {
                     onChange={(e) => setNewAddressForm({ ...newAddressForm, postcode: e.target.value })}
                     placeholder="우편번호"
                     className="form-input"
+
                     maxLength="10"
                     style={{ flex: 1 }}
                   />
