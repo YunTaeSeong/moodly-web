@@ -8,7 +8,7 @@ import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from 
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
-import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress } from '../utils/api';
+import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById } from '../utils/api';
 import { getUserIdFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { deleteCookie } from '../utils/cookie';
@@ -34,6 +34,7 @@ function MyPage() {
   
   const [activeMenu, setActiveMenu] = useState(getMenuFromPath());
   const [wishlist, setWishlist] = useState([]);
+  const [selectedWishlistIds, setSelectedWishlistIds] = useState([]);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [receivedCoupons, setReceivedCoupons] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -77,7 +78,7 @@ function MyPage() {
   // 찜한 상품 목록 및 주문 내역 가져오기
   useEffect(() => {
     if (isLoggedIn()) {
-      setWishlist(getWishlist());
+      loadWishlistFromServer();
       let allOrders = getOrders();
       
       // 노트북 스탠드 주문이 없으면 추가 (테스트용)
@@ -108,8 +109,63 @@ function MyPage() {
         inquiry.author === username || inquiry.userEmail === userEmail
       );
       setMyInquiries(userInquiries);
+    } else {
+      // 비로그인 시에는 localStorage 기준으로만 찜 목록 표시
+      setWishlist(getWishlist());
     }
   }, [activeMenu]);
+
+  // 서버에서 찜 목록 조회
+  const loadWishlistFromServer = async () => {
+    if (!isLoggedIn()) {
+      setWishlist(getWishlist());
+      return;
+    }
+
+    const result = await getWishlistItems();
+    if (!result.success) {
+      console.error('찜 목록 조회 실패:', result);
+      setWishlist(getWishlist());
+      return;
+    }
+
+    const serverItems = result.data || [];
+    if (serverItems.length === 0) {
+      setWishlist([]);
+      try {
+        localStorage.setItem('moodly_wishlist', JSON.stringify([]));
+      } catch (e) {
+        console.error('찜 로컬 동기화 오류:', e);
+      }
+      return;
+    }
+
+    // productId 기준으로 상품 상세 조회
+    const productResults = await Promise.all(
+      serverItems.map(item => getProductById(item.productId))
+    );
+
+    const merged = productResults
+      .filter(r => r && r.success && r.data)
+      .map(r => {
+        const p = r.data;
+        return {
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          image: p.image,
+          addedAt: null,
+        };
+      });
+
+    setWishlist(merged);
+
+    try {
+      localStorage.setItem('moodly_wishlist', JSON.stringify(merged));
+    } catch (e) {
+      console.error('찜 로컬 동기화 오류:', e);
+    }
+  };
 
   // URL 경로 변경 시 메뉴 업데이트
   useEffect(() => {
@@ -156,9 +212,76 @@ function MyPage() {
   };
 
   // 찜한 상품 제거 핸들러
-  const handleRemoveWishlist = (productId) => {
-    removeFromWishlist(productId);
-    setWishlist(getWishlist());
+  const handleRemoveWishlist = async (productId) => {
+    if (isLoggedIn()) {
+      const result = await removeWishlistItem(productId);
+      if (!result.success && !result.notExists) {
+        if (result.status === 401) {
+          window.alert('로그인이 필요합니다.');
+          navigate('/login');
+          return;
+        }
+        window.alert(result.message || '찜 해제에 실패했습니다.');
+      }
+      await loadWishlistFromServer();
+      setSelectedWishlistIds(prev => prev.filter(id => id !== productId));
+    } else {
+      removeFromWishlist(productId);
+      setWishlist(getWishlist());
+      setSelectedWishlistIds(prev => prev.filter(id => id !== productId));
+    }
+  };
+
+  // 찜한 상품 전체선택
+  const handleSelectAllWishlist = (e) => {
+    if (e.target.checked) {
+      setSelectedWishlistIds(wishlist.map(item => item.id));
+    } else {
+      setSelectedWishlistIds([]);
+    }
+  };
+
+  // 찜한 상품 개별 선택
+  const handleWishlistItemSelect = (productId) => {
+    setSelectedWishlistIds(prev =>
+      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+    );
+  };
+
+  // 선택한 찜 상품 일괄 삭제
+  const handleDeleteSelectedWishlist = async () => {
+    if (selectedWishlistIds.length === 0) {
+      window.alert('삭제할 상품을 선택해주세요.');
+      return;
+    }
+    if (isLoggedIn()) {
+      for (const id of selectedWishlistIds) {
+        await removeWishlistItem(id);
+      }
+      await loadWishlistFromServer();
+      setSelectedWishlistIds([]);
+      window.alert('선택한 상품이 찜 목록에서 삭제되었습니다.');
+    } else {
+      selectedWishlistIds.forEach(id => removeFromWishlist(id));
+      setWishlist(getWishlist());
+      setSelectedWishlistIds([]);
+      window.alert('선택한 상품이 찜 목록에서 삭제되었습니다.');
+    }
+  };
+
+  // 찜한 상품을 장바구니에 담기
+  const handleAddToCartFromWishlist = async (item) => {
+    if (!isLoggedIn()) {
+      window.alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+    const result = await addToCart(item.id, 1);
+    if (result.success) {
+      window.alert(`"${item.name}"이(가) 장바구니에 추가되었습니다.`);
+    } else {
+      window.alert(result.message || '장바구니 추가에 실패했습니다.');
+    }
   };
 
   // 쿠폰 받기 핸들러
@@ -717,33 +840,69 @@ function MyPage() {
                 <p>찜한 상품이 없습니다.</p>
               </div>
             ) : (
-              <div className="wishlist-grid">
-                {wishlist.map((item) => (
-                  <div key={item.id} className="wishlist-item">
-                    <div 
-                      className="wishlist-image-container"
-                      onClick={() => navigate(`/product/${item.id}`)}
-                    >
-                      <img src={item.image} alt={item.name} className="wishlist-image" />
-                    </div>
-                    <div className="wishlist-info">
-                      <h3 
-                        className="wishlist-name"
+              <>
+                <div className="wishlist-toolbar">
+                  <label className="wishlist-select-all">
+                    <input
+                      type="checkbox"
+                      checked={wishlist.length > 0 && selectedWishlistIds.length === wishlist.length}
+                      onChange={handleSelectAllWishlist}
+                    />
+                    <span>전체선택</span>
+                  </label>
+                  <button
+                    type="button"
+                    className="wishlist-delete-selected-btn"
+                    onClick={handleDeleteSelectedWishlist}
+                  >
+                    선택삭제
+                  </button>
+                </div>
+                <div className="wishlist-list">
+                  {wishlist.map((item) => (
+                    <div key={item.id} className="wishlist-row">
+                      <label className="wishlist-row-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedWishlistIds.includes(item.id)}
+                          onChange={() => handleWishlistItemSelect(item.id)}
+                        />
+                      </label>
+                      <div
+                        className="wishlist-row-image"
                         onClick={() => navigate(`/product/${item.id}`)}
                       >
-                        {item.name}
-                      </h3>
-                      <p className="wishlist-price">{item.price.toLocaleString()}원</p>
-                      <button 
-                        className="wishlist-remove-btn"
-                        onClick={() => handleRemoveWishlist(item.id)}
-                      >
-                        찜 해제
-                      </button>
+                        <img src={item.image || 'https://via.placeholder.com/120?text=No+Image'} alt={item.name} />
+                      </div>
+                      <div className="wishlist-row-details">
+                        <h3
+                          className="wishlist-row-name"
+                          onClick={() => navigate(`/product/${item.id}`)}
+                        >
+                          {item.name}
+                        </h3>
+                        <p className="wishlist-row-price">{item.price != null ? Number(item.price).toLocaleString() : 0}원</p>
+                      </div>
+                      <div className="wishlist-row-actions">
+                        <button
+                          type="button"
+                          className="wishlist-add-cart-btn"
+                          onClick={() => handleAddToCartFromWishlist(item)}
+                        >
+                          장바구니 담기
+                        </button>
+                        <button
+                          type="button"
+                          className="wishlist-delete-btn"
+                          onClick={() => handleRemoveWishlist(item.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         );

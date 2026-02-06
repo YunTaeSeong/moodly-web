@@ -819,6 +819,145 @@ export const deleteSelectedCartItems = async (cartIds) => {
   }
 };
 
+// ========== 찜(wishlist) API - product-service, Gateway 경유 ==========
+/** 백엔드 에러 응답에서 메시지 추출 (common-core ErrorResponse: body.message) */
+const getErrorMessage = (errorData, fallback) => {
+  if (!errorData) return fallback;
+  const msg = errorData.body?.message ?? errorData.message ?? errorData.error;
+  return (typeof msg === 'string' && msg.trim()) ? msg : fallback;
+};
+
+/** 찜 추가 (로그인 필요, DB 저장) - product-service 직접 호출 */
+export const addWishlistItem = async (productId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/wishlist/${productId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ productId: Number(productId) })
+    });
+    let body = {};
+    try {
+      body = await response.json();
+    } catch {
+      body = {};
+    }
+    if (!response.ok) {
+      const message = getErrorMessage(body, '찜 추가에 실패했습니다.');
+      return {
+        success: false,
+        message,
+        status: response.status,
+        alreadyExists: response.status === 409
+      };
+    }
+    return { success: true, data: body };
+  } catch (error) {
+    console.error('찜 추가 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 찜 단건 조회 - product-service 직접 호출 */
+export const getWishlistItem = async (productId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/wishlist/${productId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 409) {
+      // 서버 기준 찜하지 않은 상태
+      return { success: false, status: 409, notExists: true };
+    }
+    if (!response.ok) {
+      const message = getErrorMessage(errorData, '찜 상태 조회에 실패했습니다.');
+      return { success: false, message, status: response.status };
+    }
+    return { success: true, data: errorData };
+  } catch (error) {
+    console.error('찜 상태 조회 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 찜 전체 조회 - product-service 직접 호출 */
+export const getWishlistItems = async () => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/wishlist/all`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const errorData = await response.json().catch(() => ([]));
+    if (response.status === 409) {
+      // 찜 목록 없음
+      return { success: true, data: [] };
+    }
+    if (!response.ok) {
+      const message = getErrorMessage(errorData, '찜 목록 조회에 실패했습니다.');
+      return { success: false, message, status: response.status };
+    }
+    return { success: true, data: errorData || [] };
+  } catch (error) {
+    console.error('찜 목록 조회 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 찜 삭제 - product-service 직접 호출 */
+export const removeWishlistItem = async (productId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/wishlist/${productId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    let errorData = {};
+    try {
+      errorData = await response.json();
+    } catch {
+      errorData = {};
+    }
+    if (response.status === 409) {
+      // 이미 없는 경우도 성공으로 취급
+      return { success: true, notExists: true };
+    }
+    if (!response.ok) {
+      const message = getErrorMessage(errorData, '찜 삭제에 실패했습니다.');
+      return { success: false, message, status: response.status };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('찜 삭제 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
 // 배송지 목록 조회
 export const getDeliveryAddresses = async () => {
   try {

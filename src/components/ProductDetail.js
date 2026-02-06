@@ -12,7 +12,7 @@ import { getReviewsByProductId } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
-import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress } from '../utils/api';
+import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem } from '../utils/api';
 import './ProductDetail.css';
 
 // 샘플 상품 데이터 (실제로는 API나 상태 관리에서 가져올 수 있습니다)
@@ -596,20 +596,37 @@ function ProductDetail() {
 
   // 찜한 상품 상태 확인 및 배송지 정보 불러오기
   useEffect(() => {
-    if (product) {
-      setWishlistStatus(isWishlisted(product.id));
+    const syncWishlistAndDelivery = async () => {
+      if (!product) return;
+
       setSelectedProductId(product.id); // 현재 상품을 기본값으로 설정
-    }
-    // 마이페이지 배송지 목록 불러오기 (우선)
-    if (isLoggedIn()) {
-      loadDeliveryAddresses();
-    } else {
-      // 로그인하지 않은 경우에만 로컬 스토리지에서 불러오기
-      const savedAddress = getDeliveryAddress();
-      if (savedAddress) {
-        setDeliveryAddress(savedAddress);
+
+      if (isLoggedIn()) {
+        // 서버 기준 찜 상태 확인
+        const result = await getWishlistItem(product.id);
+        if (result.success) {
+          setWishlistStatus(true);
+          addToWishlist(product); // 로컬 스토리지 동기화
+        } else if (result.notExists) {
+          setWishlistStatus(false);
+          removeFromWishlist(product.id);
+        } else {
+          // 에러 시에는 기존 localStorage 기준으로 표시
+          setWishlistStatus(isWishlisted(product.id));
+        }
+
+        await loadDeliveryAddresses();
+      } else {
+        // 로그인하지 않은 경우에는 localStorage 기준
+        setWishlistStatus(isWishlisted(product.id));
+        const savedAddress = getDeliveryAddress();
+        if (savedAddress) {
+          setDeliveryAddress(savedAddress);
+        }
       }
-    }
+    };
+
+    syncWishlistAndDelivery();
   }, [product]);
 
   // 마이페이지 배송지 변경 감지 및 동기화
@@ -1188,13 +1205,36 @@ function ProductDetail() {
     }, 100);
   };
 
-  const handleWishlistToggle = () => {
+  const handleWishlistToggle = async () => {
     if (wishlistStatus) {
-      removeFromWishlist(product.id);
-      setWishlistStatus(false);
+      if (isLoggedIn()) {
+        const result = await removeWishlistItem(product.id);
+        if (result.success || result.notExists) {
+          removeFromWishlist(product.id);
+          setWishlistStatus(false);
+        } else {
+          if (result.status === 401) navigate('/login');
+          else window.alert(result.message || '찜 해제에 실패했습니다.');
+        }
+      } else {
+        removeFromWishlist(product.id);
+        setWishlistStatus(false);
+      }
     } else {
-      addToWishlist(product);
-      setWishlistStatus(true);
+      if (isLoggedIn()) {
+        const result = await addWishlistItem(product.id);
+        if (result.success || result.alreadyExists) {
+          addToWishlist(product);
+          setWishlistStatus(true);
+          if (result.alreadyExists) window.alert('이미 찜한 상품입니다.');
+        } else {
+          if (result.status === 401) navigate('/login');
+          else window.alert(result.message || '찜 추가에 실패했습니다.');
+        }
+      } else {
+        addToWishlist(product);
+        setWishlistStatus(true);
+      }
     }
   };
 
