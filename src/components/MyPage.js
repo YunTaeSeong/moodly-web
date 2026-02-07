@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { isLoggedIn } from '../utils/cookie';
+import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
 import { getAvailableCoupons, getReceivedCoupons, receiveCoupon, checkCouponExpiry } from '../utils/coupon';
 import { getOrders, getOrderCount, addTestOrder } from '../utils/order';
@@ -8,7 +8,7 @@ import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from 
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
-import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById } from '../utils/api';
+import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi } from '../utils/api';
 import { getUserIdFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { deleteCookie } from '../utils/cookie';
@@ -54,9 +54,13 @@ function MyPage() {
   const [passwordErrors, setPasswordErrors] = useState({});
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [myInquiries, setMyInquiries] = useState([]);
+  const [inquiryProductCache, setInquiryProductCache] = useState({});
   const [showEditInquiryModal, setShowEditInquiryModal] = useState(false);
   const [editingInquiryId, setEditingInquiryId] = useState(null);
   const [editingInquiryContent, setEditingInquiryContent] = useState('');
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [selectedInquiryIdForReply, setSelectedInquiryIdForReply] = useState(null);
+  const [replyContent, setReplyContent] = useState('');
   const [deliveryAddresses, setDeliveryAddresses] = useState([]);
   const [showDeliveryAddressModal, setShowDeliveryAddressModal] = useState(false);
   const [editingDeliveryAddress, setEditingDeliveryAddress] = useState(null);
@@ -99,16 +103,8 @@ function MyPage() {
       const username = getCookie('username') || 'test';
       setMyReviews(getReviewsByAuthor(username));
       
-      // 상품 문의 건수 가져오기
-      const allInquiries = getInquiries();
-      setInquiryCount(allInquiries.length);
-      
-      // 사용자별 상품 문의 가져오기
-      const userEmail = getCookie('userEmail') || '';
-      const userInquiries = allInquiries.filter(inquiry => 
-        inquiry.author === username || inquiry.userEmail === userEmail
-      );
-      setMyInquiries(userInquiries);
+      // 상품 문의: 로그인 시 API에서 조회
+      loadMyInquiriesFromServer();
     } else {
       // 비로그인 시에는 localStorage 기준으로만 찜 목록 표시
       setWishlist(getWishlist());
@@ -441,28 +437,36 @@ function MyPage() {
     setEditingInquiryContent('');
   };
 
-  // 상품문의 수정 제출
-  const handleSubmitEditInquiry = () => {
+  // 상품문의 수정 제출 (관리자: admin API, 유저: user API, 비로그인: localStorage)
+  const handleSubmitEditInquiry = async () => {
     if (!editingInquiryId) {
       window.alert('문의를 선택해주세요.');
       return;
     }
-
     if (!editingInquiryContent.trim()) {
       window.alert('문의 내용을 입력해주세요.');
       return;
     }
-
+    if (isLoggedIn()) {
+      const api = isAdmin() ? adminUpdateProductInquiryApi : updateProductInquiryApi;
+      const res = await api(editingInquiryId, editingInquiryContent.trim());
+      if (res && res.success) {
+        window.alert('상품 문의가 수정되었습니다.');
+        handleCloseEditInquiryModal();
+        loadMyInquiriesFromServer();
+      } else {
+        window.alert(res?.message || '상품 문의 수정에 실패했습니다.');
+      }
+      return;
+    }
     const updatedInquiry = updateInquiry(editingInquiryId, editingInquiryContent.trim());
-    
     if (updatedInquiry) {
       window.alert('상품 문의가 수정되었습니다.');
       handleCloseEditInquiryModal();
-      // 상품 문의 목록 새로고침
       const allInquiries = getInquiries();
       const userEmail = getCookie('userEmail') || '';
       const username = getCookie('username') || 'test';
-      const userInquiries = allInquiries.filter(inquiry => 
+      const userInquiries = allInquiries.filter(inquiry =>
         inquiry.author === username || inquiry.userEmail === userEmail
       );
       setMyInquiries(userInquiries);
@@ -472,31 +476,96 @@ function MyPage() {
     }
   };
 
-  // 상품문의 삭제
-  const handleDeleteInquiry = (inquiryId) => {
-    if (window.confirm('상품 문의를 삭제하시겠습니까?')) {
-      if (deleteInquiry(inquiryId)) {
+  // 상품문의 삭제 (관리자: admin API, 유저: user API, 비로그인: localStorage)
+  const handleDeleteInquiry = async (inquiryId) => {
+    if (!window.confirm('상품 문의를 삭제하시겠습니까?')) return;
+    if (isLoggedIn()) {
+      const api = isAdmin() ? adminDeleteProductInquiryApi : deleteProductInquiryApi;
+      const res = await api(inquiryId);
+      if (res && res.success) {
         window.alert('상품 문의가 삭제되었습니다.');
-        const allInquiries = getInquiries();
-        const userEmail = getCookie('userEmail') || '';
-        const username = getCookie('username') || 'test';
-        const userInquiries = allInquiries.filter(inquiry => 
-          inquiry.author === username || inquiry.userEmail === userEmail
-        );
-        setMyInquiries(userInquiries);
-        setInquiryCount(allInquiries.length);
+        loadMyInquiriesFromServer();
       } else {
-        window.alert('상품 문의 삭제에 실패했습니다.');
+        window.alert(res?.message || '상품 문의 삭제에 실패했습니다.');
       }
+      return;
+    }
+    if (deleteInquiry(inquiryId)) {
+      window.alert('상품 문의가 삭제되었습니다.');
+      const allInquiries = getInquiries();
+      const userEmail = getCookie('userEmail') || '';
+      const username = getCookie('username') || 'test';
+      const userInquiries = allInquiries.filter(inquiry =>
+        inquiry.author === username || inquiry.userEmail === userEmail
+      );
+      setMyInquiries(userInquiries);
+      setInquiryCount(allInquiries.length);
+    } else {
+      window.alert('상품 문의 삭제에 실패했습니다.');
     }
   };
 
-  // 상품 정보 가져오기
+  // 관리자 답변 모달 열기/닫기
+  const handleOpenReplyModal = (inquiryId) => {
+    setSelectedInquiryIdForReply(inquiryId);
+    setReplyContent('');
+    setShowReplyModal(true);
+  };
+  const handleCloseReplyModal = () => {
+    setShowReplyModal(false);
+    setSelectedInquiryIdForReply(null);
+    setReplyContent('');
+  };
+
+  // 관리자 답변 제출
+  const handleSubmitReply = async () => {
+    if (!selectedInquiryIdForReply) return;
+    if (!replyContent.trim()) {
+      window.alert('답변 내용을 입력해주세요.');
+      return;
+    }
+    const res = await adminReplyProductInquiryApi(selectedInquiryIdForReply, replyContent.trim());
+    if (res && res.success) {
+      window.alert('답변이 등록되었습니다.');
+      handleCloseReplyModal();
+      loadMyInquiriesFromServer();
+    } else {
+      window.alert(res?.message || '답변 등록에 실패했습니다.');
+    }
+  };
+
+  // 마이페이지 상품 문의 목록 API에서 로드 (관리자: 전체 문의, 유저: 내 문의만)
+  const loadMyInquiriesFromServer = async () => {
+    if (!isLoggedIn()) return;
+    const res = isAdmin()
+      ? await getAdminProductInquiriesApi({ page: 0, size: 500 })
+      : await getProductInquiriesApi({ page: 0, size: 500 });
+    if (!res.success) {
+      setMyInquiries([]);
+      setInquiryCount(0);
+      return;
+    }
+    const list = res.data || [];
+    setMyInquiries(list);
+    setInquiryCount(list.length);
+    const productIds = [...new Set(list.map((i) => i.productId).filter(Boolean))];
+    if (productIds.length === 0) {
+      setInquiryProductCache({});
+      return;
+    }
+    const productResults = await Promise.all(productIds.map((id) => getProductById(id)));
+    const cache = {};
+    productResults.forEach((r, idx) => {
+      if (r && r.success && r.data) cache[productIds[idx]] = r.data;
+    });
+    setInquiryProductCache(cache);
+  };
+
+  // 상품 정보 가져오기 (문의용 캐시 → 전체 상품 → 카테고리)
   const getProductInfo = (productId) => {
+    if (inquiryProductCache[productId]) return inquiryProductCache[productId];
     const product = allProducts.find(p => p.id === productId);
     if (product) return product;
-    
-    // categoryProducts에서 찾기
     try {
       const { getCategoryProductById } = require('../utils/categoryProducts');
       return getCategoryProductById(productId);
@@ -1052,22 +1121,32 @@ function MyPage() {
                               {inquiry.status}
                             </span>
                           </div>
-                          {!inquiry.reply && inquiry.status !== '답변완료' && (
-                            <div className="inquiry-item-header-right">
+                          <div className="inquiry-item-header-right">
+                            {(isAdmin() || (!inquiry.reply && inquiry.status !== '답변완료')) && (
+                              <>
+                                <button 
+                                  className="inquiry-edit-btn"
+                                  onClick={() => handleOpenEditInquiryModal(inquiry.id, inquiry.content)}
+                                >
+                                  수정
+                                </button>
+                                <button 
+                                  className="inquiry-delete-btn"
+                                  onClick={() => handleDeleteInquiry(inquiry.id)}
+                                >
+                                  삭제
+                                </button>
+                              </>
+                            )}
+                            {isAdmin() && inquiry.status === '답변대기' && (
                               <button 
-                                className="inquiry-edit-btn"
-                                onClick={() => handleOpenEditInquiryModal(inquiry.id, inquiry.content)}
+                                className="inquiry-reply-btn"
+                                onClick={() => handleOpenReplyModal(inquiry.id)}
                               >
-                                수정
+                                답변하기
                               </button>
-                              <button 
-                                className="inquiry-delete-btn"
-                                onClick={() => handleDeleteInquiry(inquiry.id)}
-                              >
-                                삭제
-                              </button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                         <div className="inquiry-item-content">{inquiry.content}</div>
                         {inquiry.reply && (
@@ -1123,6 +1202,52 @@ function MyPage() {
                     </button>
                     <button className="inquiry-modal-btn submit" onClick={handleSubmitEditInquiry}>
                       수정하기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 관리자 답변 작성 모달 */}
+            {showReplyModal && (
+              <div className="inquiry-modal-overlay" onClick={handleCloseReplyModal}>
+                <div className="inquiry-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="inquiry-modal-header">
+                    <h3>답변 작성</h3>
+                    <button className="inquiry-modal-close" onClick={handleCloseReplyModal}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="inquiry-modal-body">
+                    {selectedInquiryIdForReply && myInquiries.find(i => i.id === selectedInquiryIdForReply) && (
+                      <div className="inquiry-form-group">
+                        <label>문의 내용</label>
+                        <div className="inquiry-original-content">
+                          {myInquiries.find(i => i.id === selectedInquiryIdForReply).content}
+                        </div>
+                      </div>
+                    )}
+                    <div className="inquiry-form-group">
+                      <label htmlFor="reply-content">답변 내용</label>
+                      <textarea
+                        id="reply-content"
+                        className="inquiry-content-textarea"
+                        value={replyContent}
+                        onChange={(e) => setReplyContent(e.target.value)}
+                        placeholder="답변 내용을 입력해주세요."
+                        rows={8}
+                      />
+                    </div>
+                  </div>
+                  <div className="inquiry-modal-footer">
+                    <button className="inquiry-modal-btn cancel" onClick={handleCloseReplyModal}>
+                      취소
+                    </button>
+                    <button className="inquiry-modal-btn submit" onClick={handleSubmitReply}>
+                      답변 등록
                     </button>
                   </div>
                 </div>

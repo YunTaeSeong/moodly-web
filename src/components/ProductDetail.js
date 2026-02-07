@@ -4,7 +4,7 @@ import { isWishlisted, addToWishlist, removeFromWishlist } from '../utils/wishli
 import { getDeliveryAddress, saveDeliveryAddress, hasDeliveryAddress } from '../utils/delivery';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { processPayment, generateOrderId } from '../utils/payment';
-import { addInquiry, getInquiries, addInquiryReply, updateInquiry, deleteInquiry } from '../utils/inquiry';
+import { getInquiries, addInquiry } from '../utils/inquiry';
 import { receiveProductCoupon, getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { saveOrder } from '../utils/order';
 import { allProducts } from '../utils/products';
@@ -12,7 +12,8 @@ import { getReviewsByProductId } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
-import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem } from '../utils/api';
+import { getUserIdFromToken } from '../utils/token';
+import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi } from '../utils/api';
 import './ProductDetail.css';
 
 // 샘플 상품 데이터 (실제로는 API나 상태 관리에서 가져올 수 있습니다)
@@ -749,12 +750,22 @@ function ProductDetail() {
     setLoadingAddresses(false);
   };
 
-  // 상품 문의 목록 불러오기
-  useEffect(() => {
-    if (product && activeTab === 'inquiry') {
-      const productInquiries = getInquiries(product.id);
-      setInquiries(productInquiries);
+  // 상품 문의 목록 불러오기 (관리자: 전체 문의 API, 유저: 내 문의 API, 비로그인: localStorage)
+  const loadInquiryList = async () => {
+    if (!product) return;
+    if (isLoggedIn()) {
+      const res = isAdmin()
+        ? await getAdminProductInquiriesApi({ productId: product.id, page: 0, size: 100 })
+        : await getProductInquiriesApi({ productId: product.id, page: 0, size: 100 });
+      if (res.success && res.data) setInquiries(res.data);
+      else setInquiries([]);
+    } else {
+      setInquiries(getInquiries(product.id));
     }
+  };
+
+  useEffect(() => {
+    if (product && activeTab === 'inquiry') loadInquiryList();
   }, [product, activeTab]);
 
   // 구매후기 목록 불러오기 및 정렬
@@ -1254,44 +1265,37 @@ function ProductDetail() {
     setInquiryContent('');
   };
 
-  const handleSubmitInquiry = () => {
+  const handleSubmitInquiry = async () => {
     if (!product) {
       window.alert('상품 정보를 불러올 수 없습니다.');
       return;
     }
-
     if (!inquiryContent.trim()) {
       window.alert('문의내용을 입력해주세요.');
       return;
     }
-
-    const username = getCookie('username') || 'test';
-    const userEmail = getCookie('userEmail') || '';
-    const userId = userEmail || username;
-
-    const inquiryData = {
-      productId: product.id,
-      productName: product.name,
-      content: inquiryContent.trim(),
-      author: username,
-      userEmail: userEmail
-    };
-
-    const newInquiry = addInquiry(inquiryData);
-    
-    if (newInquiry) {
-      // 사용자에게 알림 생성
-      createInquiryNotification(userId, product.id, product.name);
-      // 관리자에게 알림 생성
-      createInquiryNotificationForAdmin(userId, product.id, product.name, newInquiry.id);
-      
-      window.alert('상품 문의가 등록되었습니다.');
-      handleCloseInquiryModal();
-      // 상품 문의 목록 새로고침
-      const productInquiries = getInquiries(product.id);
-      setInquiries(productInquiries);
+    if (isLoggedIn()) {
+      const res = await createProductInquiryApi(product.id, inquiryContent.trim());
+      if (res.success) {
+        window.alert('상품 문의가 등록되었습니다.');
+        handleCloseInquiryModal();
+        setInquiryContent('');
+        await loadInquiryList();
+      } else {
+        window.alert(res.message || '상품 문의 등록에 실패했습니다.');
+        if (res.status === 401) navigate('/login');
+      }
     } else {
-      window.alert('상품 문의 등록에 실패했습니다.');
+      const inquiryData = { productId: product.id, productName: product.name, content: inquiryContent.trim(), author: getCookie('username') || '회원', userEmail: getCookie('userEmail') || '' };
+      const newInquiry = addInquiry(inquiryData);
+      if (newInquiry) {
+        window.alert('상품 문의가 등록되었습니다.');
+        handleCloseInquiryModal();
+        setInquiryContent('');
+        setInquiries(getInquiries(product.id));
+      } else {
+        window.alert('상품 문의 등록에 실패했습니다.');
+      }
     }
   };
 
@@ -1321,74 +1325,92 @@ function ProductDetail() {
     setEditingInquiryContent('');
   };
 
-  // 문의 수정 제출
-  const handleSubmitEditInquiry = () => {
+  // 문의 수정 제출 (관리자: 답변 후에도 수정 가능, 유저: 답변 전만)
+  const handleSubmitEditInquiry = async () => {
     if (!editingInquiryId) {
       window.alert('문의를 선택해주세요.');
       return;
     }
-
     if (!editingInquiryContent.trim()) {
       window.alert('문의 내용을 입력해주세요.');
       return;
     }
-
-    const updatedInquiry = updateInquiry(editingInquiryId, editingInquiryContent.trim());
-    
-    if (updatedInquiry) {
-      window.alert('상품 문의가 수정되었습니다.');
-      handleCloseEditInquiryModal();
-      // 상품 문의 목록 새로고침
-      const productInquiries = getInquiries(product.id);
-      setInquiries(productInquiries);
+    if (isLoggedIn()) {
+      const api = isAdmin() ? adminUpdateProductInquiryApi : updateProductInquiryApi;
+      const res = await api(editingInquiryId, editingInquiryContent.trim());
+      if (res.success) {
+        window.alert('상품 문의가 수정되었습니다.');
+        handleCloseEditInquiryModal();
+        await loadInquiryList();
+      } else {
+        window.alert(res.message || '상품 문의 수정에 실패했습니다.');
+        if (res.status === 401) navigate('/login');
+      }
     } else {
-      window.alert('상품 문의 수정에 실패했습니다.');
+      const { updateInquiry } = await import('../utils/inquiry');
+      const updatedInquiry = updateInquiry(editingInquiryId, editingInquiryContent.trim());
+      if (updatedInquiry) {
+        window.alert('상품 문의가 수정되었습니다.');
+        handleCloseEditInquiryModal();
+        setInquiries(getInquiries(product.id));
+      } else {
+        window.alert('답변이 달린 문의는 수정할 수 없습니다.');
+      }
     }
   };
 
-  // 문의 삭제
-  const handleDeleteInquiry = (inquiryId) => {
-    if (window.confirm('상품 문의를 삭제하시겠습니까?')) {
-      if (deleteInquiry(inquiryId)) {
+  // 문의 삭제 (관리자: 답변 후에도 삭제 가능, 유저: 답변 전만)
+  const handleDeleteInquiry = async (inquiryId) => {
+    if (!window.confirm('상품 문의를 삭제하시겠습니까?')) return;
+    if (isLoggedIn()) {
+      const api = isAdmin() ? adminDeleteProductInquiryApi : deleteProductInquiryApi;
+      const res = await api(inquiryId);
+      if (res.success) {
         window.alert('상품 문의가 삭제되었습니다.');
-        // 상품 문의 목록 새로고침
-        const productInquiries = getInquiries(product.id);
-        setInquiries(productInquiries);
+        await loadInquiryList();
+      } else {
+        window.alert(res.message || '상품 문의 삭제에 실패했습니다.');
+        if (res.status === 401) navigate('/login');
+      }
+    } else {
+      if ((await import('../utils/inquiry')).deleteInquiry(inquiryId)) {
+        window.alert('상품 문의가 삭제되었습니다.');
+        setInquiries(getInquiries(product.id));
       } else {
         window.alert('상품 문의 삭제에 실패했습니다.');
       }
     }
   };
 
-  const handleSubmitReply = () => {
+  const handleSubmitReply = async () => {
     if (!selectedInquiryId) {
       window.alert('문의를 선택해주세요.');
       return;
     }
-
     if (!replyContent.trim()) {
       window.alert('답변 내용을 입력해주세요.');
       return;
     }
-
-    // 원래 문의 정보 가져오기 (알림을 위해)
-    const allInquiries = getInquiries();
-    const originalInquiry = allInquiries.find(inq => inq.id === selectedInquiryId);
-    
-    const updatedInquiry = addInquiryReply(selectedInquiryId, replyContent.trim());
-    
-    if (updatedInquiry && originalInquiry) {
-      // 문의 작성자에게 알림 생성
-      const inquiryAuthor = originalInquiry.userEmail || originalInquiry.author || 'test';
-      createInquiryReplyNotification(inquiryAuthor, product.id, product.name);
-      
-      window.alert('답변이 등록되었습니다.');
-      handleCloseReplyModal();
-      // 상품 문의 목록 새로고침
-      const productInquiries = getInquiries(product.id);
-      setInquiries(productInquiries);
+    if (isAdmin()) {
+      const res = await adminReplyProductInquiryApi(selectedInquiryId, replyContent.trim());
+      if (res.success) {
+        window.alert('답변이 등록되었습니다.');
+        handleCloseReplyModal();
+        await loadInquiryList();
+      } else {
+        window.alert(res.message || '답변 등록에 실패했습니다.');
+        if (res.status === 401) navigate('/login');
+      }
     } else {
-      window.alert('답변 등록에 실패했습니다.');
+      const { addInquiryReply } = await import('../utils/inquiry');
+      const updatedInquiry = addInquiryReply(selectedInquiryId, replyContent.trim());
+      if (updatedInquiry) {
+        window.alert('답변이 등록되었습니다.');
+        handleCloseReplyModal();
+        setInquiries(getInquiries(product.id));
+      } else {
+        window.alert('답변 등록에 실패했습니다.');
+      }
     }
   };
 
@@ -1512,25 +1534,24 @@ function ProductDetail() {
             ) : (
               <div className="inquiry-list">
                 {inquiries.map((inquiry) => {
-                  const username = getCookie('username') || 'test';
-                  const userEmail = getCookie('userEmail') || '';
-                  const isMyInquiry = (inquiry.author === username || inquiry.userEmail === userEmail) && isLoggedIn();
+                  const currentUserId = getUserIdFromToken();
+                  const isMyInquiry = isLoggedIn() && currentUserId != null && Number(inquiry.userId) === Number(currentUserId);
                   const canEditDelete = isMyInquiry && !inquiry.reply && inquiry.status !== '답변완료';
-                  
+                  const dateStr = inquiry.createdAt || inquiry.createdDate;
                   return (
                     <div key={inquiry.id} className="inquiry-item">
                       <div className="inquiry-item-header">
                         <div className="inquiry-item-header-left">
-                          <span className="inquiry-author">{inquiry.author}</span>
+                          <span className="inquiry-author">{inquiry.author || '회원'}</span>
                           <span className="inquiry-date">
-                            {new Date(inquiry.createdAt).toLocaleDateString('ko-KR')}
+                            {dateStr ? new Date(dateStr).toLocaleDateString('ko-KR') : ''}
                           </span>
                           <span className={`inquiry-status ${inquiry.status === '답변완료' ? 'completed' : ''}`}>
                             {inquiry.status}
                           </span>
                         </div>
                         <div className="inquiry-item-header-right">
-                          {canEditDelete && (
+                          {(canEditDelete || isAdmin()) && (
                             <>
                               <button 
                                 className="inquiry-edit-btn"
@@ -1564,9 +1585,9 @@ function ProductDetail() {
                     {inquiry.reply && (
                       <div className="inquiry-reply">
                         <div className="inquiry-reply-header">
-                          <span className="inquiry-reply-label">관리자 답변</span>
+                          <span className="inquiry-reply-label">관리자 답변{inquiry.replyName ? ` (${inquiry.replyName})` : ''}</span>
                           <span className="inquiry-reply-date">
-                            {new Date(inquiry.replyDate).toLocaleDateString('ko-KR')}
+                            {inquiry.replyDate ? new Date(inquiry.replyDate).toLocaleDateString('ko-KR') : ''}
                           </span>
                         </div>
                         <div className="inquiry-reply-content">{inquiry.reply}</div>

@@ -958,6 +958,189 @@ export const removeWishlistItem = async (productId) => {
   }
 };
 
+// ========== 상품 문의 API (product-service) ==========
+const mapInquiryFromApi = (item) => {
+  if (!item) return null;
+  const status = item.status === 'COMPLETED' ? '답변완료' : '답변대기';
+  return {
+    id: item.id,
+    productId: item.productId,
+    userId: item.userId,
+    content: item.content,
+    status,
+    reply: item.reply || null,
+    replyDate: item.replyDate || null,
+    replyId: item.replyId,
+    replyName: item.replyName,
+    createdDate: item.createdDate,
+    lastModifiedDate: item.lastModifiedDate,
+    createdAt: item.createdDate,
+    author: '회원'
+  };
+};
+
+/** 상품 문의 등록 (로그인 필요) */
+export const createProductInquiryApi = async (productId, content) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/inquiry/${productId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ content: content.trim() })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: getErrorMessage(data, '문의 등록에 실패했습니다.'), status: response.status };
+    return { success: true, data: mapInquiryFromApi(data) };
+  } catch (e) {
+    console.error('상품 문의 등록 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 상품 문의 목록 조회 (본인 문의만, productId 있으면 해당 상품만) */
+export const getProductInquiriesApi = async ({ productId, status, content, page = 0, size = 20 } = {}) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const params = new URLSearchParams();
+    if (productId != null) params.set('productId', productId);
+    if (status) params.set('status', status);
+    if (content) params.set('content', content);
+    params.set('page', String(page));
+    params.set('size', String(size));
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/inquiry/all?${params}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: getErrorMessage(data, '문의 목록 조회에 실패했습니다.'), status: response.status };
+    const list = (data.content || []).map(mapInquiryFromApi);
+    return { success: true, data: list, totalElements: data.totalElements ?? list.length, totalPages: data.totalPages ?? 1 };
+  } catch (e) {
+    console.error('상품 문의 목록 조회 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 상품 문의 수정 (본인 글만, 답변 전만) */
+export const updateProductInquiryApi = async (inquiryId, content) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/inquiry/${inquiryId}/update`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ content: content.trim() })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: getErrorMessage(data, '문의 수정에 실패했습니다.'), status: response.status };
+    return { success: true, data: mapInquiryFromApi(data) };
+  } catch (e) {
+    console.error('상품 문의 수정 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 상품 문의 삭제 (본인 글만, 답변 전만) */
+export const deleteProductInquiryApi = async (inquiryId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/inquiry/${inquiryId}/delete`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (response.status === 204 || response.ok) return { success: true };
+    const data = await response.json().catch(() => ({}));
+    return { success: false, message: getErrorMessage(data, '문의 삭제에 실패했습니다.'), status: response.status };
+  } catch (e) {
+    console.error('상품 문의 삭제 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 관리자: 상품 문의 목록 (페이징/필터) */
+export const getAdminProductInquiriesApi = async ({ productId, status, content, page = 0, size = 20 } = {}) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const params = new URLSearchParams();
+    if (productId != null) params.set('productId', productId);
+    if (status) params.set('status', status);
+    if (content) params.set('content', content);
+    params.set('page', String(page));
+    params.set('size', String(size));
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry?${params}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: getErrorMessage(data, '문의 목록 조회에 실패했습니다.'), status: response.status };
+    const list = (Array.isArray(data) ? data : (data.content || [])).map(mapInquiryFromApi);
+    return { success: true, data: list, totalElements: data.totalElements ?? list.length, totalPages: data.totalPages ?? 1 };
+  } catch (e) {
+    console.error('관리자 문의 목록 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 관리자: 문의 답변 등록 (상태 COMPLETED) */
+export const adminReplyProductInquiryApi = async (inquiryId, reply) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry/${inquiryId}/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ reply: reply.trim() })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: getErrorMessage(data, '답변 등록에 실패했습니다.'), status: response.status };
+    return { success: true, data: mapInquiryFromApi(data) };
+  } catch (e) {
+    console.error('관리자 답변 등록 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 관리자: 문의 수정 */
+export const adminUpdateProductInquiryApi = async (inquiryId, content) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry/${inquiryId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ content: content.trim() })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: getErrorMessage(data, '문의 수정에 실패했습니다.'), status: response.status };
+    return { success: true, data: mapInquiryFromApi(data) };
+  } catch (e) {
+    console.error('관리자 문의 수정 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 관리자: 문의 삭제 */
+export const adminDeleteProductInquiryApi = async (inquiryId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry/${inquiryId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (response.status === 204 || response.ok) return { success: true };
+    const data = await response.json().catch(() => ({}));
+    return { success: false, message: getErrorMessage(data, '문의 삭제에 실패했습니다.'), status: response.status };
+  } catch (e) {
+    console.error('관리자 문의 삭제 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
 // 배송지 목록 조회
 export const getDeliveryAddresses = async () => {
   try {
