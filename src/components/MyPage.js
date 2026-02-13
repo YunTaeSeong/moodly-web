@@ -9,7 +9,7 @@ import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
 import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi } from '../utils/api';
-import { getUserIdFromToken } from '../utils/token';
+import { getUserIdFromToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { deleteCookie } from '../utils/cookie';
 import './MyPage.css';
@@ -785,12 +785,14 @@ function MyPage() {
             </div>
           </div>
         );
-      case 'home':
+      case 'home': {
+        const isAdminForDisplay = hasRolesInToken() ? isAdminFromToken() : isAdmin();
+        const displayName = isAdminForDisplay ? '관리자' : (getCookie('username') || '회원');
         return (
           <div className="mypage-content-section">
             <h2>마이쇼핑 홈</h2>
             <div className="mypage-welcome">
-              <p>안녕하세요, <strong>test</strong>님!</p>
+              <p>안녕하세요, <strong>{displayName}</strong>님!</p>
               <p>오늘도 좋은 하루 되세요.</p>
             </div>
             <div className="mypage-summary">
@@ -812,12 +814,13 @@ function MyPage() {
                 className="summary-card summary-card-clickable"
                 onClick={() => navigate('/mypage/inquiries')}
               >
-                <h3>상품 문의</h3>
+                <h3>{isAdminForDisplay ? '상품 문의 (전체)' : '상품 문의'}</h3>
                 <p className="summary-count">{inquiryCount}건</p>
               </div>
             </div>
           </div>
         );
+      }
       case 'orders':
         return (
           <div className="mypage-content-section">
@@ -1070,16 +1073,19 @@ function MyPage() {
             </div>
           </div>
         );
-      case 'inquiry':
+      case 'inquiry': {
+        const isAdminInquiry = hasRolesInToken() ? isAdminFromToken() : isAdmin();
         return (
           <div className="mypage-content-section">
-            <h2>상품 문의</h2>
+            <h2>{isAdminInquiry ? '상품 문의 (전체)' : '상품 문의'}</h2>
             {myInquiries.length === 0 ? (
               <div className="mypage-empty">
                 <p>등록된 상품 문의가 없습니다.</p>
-                <button className="inquiry-create-btn" onClick={() => navigate('/')}>
-                  상품 문의 작성하기
-                </button>
+                {!isAdminInquiry && (
+                  <button className="inquiry-create-btn" onClick={() => navigate('/')}>
+                    상품 문의 작성하기
+                  </button>
+                )}
               </div>
             ) : (
               <div className="inquiry-list">
@@ -1255,6 +1261,7 @@ function MyPage() {
             )}
           </div>
         );
+      }
       case 'coupon':
         return (
           <div className="mypage-content-section">
@@ -1792,4 +1799,3 @@ function MyPage() {
 }
 
 export default MyPage;
-

@@ -34,24 +34,49 @@ export const hasTokens = () => {
   return !!getAccessToken() && !!getRefreshToken();
 };
 
-// JWT 토큰에서 userId 추출
-export const getUserIdFromToken = () => {
+// JWT payload 파싱 (공통)
+const getPayload = () => {
   try {
     const token = getAccessToken();
     if (!token) return null;
-    
-    // JWT는 base64로 인코딩된 3부분으로 구성: header.payload.signature
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    
-    // payload 디코딩
-    const payload = JSON.parse(atob(parts[1]));
-    
-    // JWT의 subject(sub)가 userId (문자열로 저장되어 있음)
+    return JSON.parse(atob(parts[1]));
+  } catch (error) {
+    return null;
+  }
+};
+
+// JWT 토큰에서 userId 추출
+export const getUserIdFromToken = () => {
+  try {
+    const payload = getPayload();
+    if (!payload) return null;
     return payload.sub ? parseInt(payload.sub, 10) : null;
   } catch (error) {
     console.error('JWT 토큰 파싱 오류:', error);
     return null;
+  }
+};
+
+// JWT에 roles/role 클레임이 있는지
+export const hasRolesInToken = () => {
+  const payload = getPayload();
+  if (!payload) return false;
+  return payload.roles != null || payload.role != null;
+};
+
+// JWT 토큰에서 관리자(ADMIN) 여부 확인 (roles 클레임 기준)
+export const isAdminFromToken = () => {
+  try {
+    const payload = getPayload();
+    if (!payload) return false;
+    const roles = payload.roles || payload.role;
+    if (roles == null) return false;
+    const list = Array.isArray(roles) ? roles : [roles];
+    return list.some((r) => String(r).toUpperCase() === 'ADMIN' || String(r).toUpperCase() === 'ROLE_ADMIN');
+  } catch (error) {
+    return false;
   }
 };
 
