@@ -4,6 +4,7 @@ import { getAccessToken } from './token';
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8082';
 const PRODUCT_API_BASE_URL = process.env.REACT_APP_PRODUCT_API_BASE_URL || 'http://localhost:8083';
 const CART_API_BASE_URL = process.env.REACT_APP_CART_API_BASE_URL || 'http://localhost:8084';
+const NOTIFICATION_API_BASE_URL = process.env.REACT_APP_NOTIFICATION_API_BASE_URL || 'http://localhost:8086';
 
 // API 호출 기본 함수
 export const apiCall = async (endpoint, options = {}) => {
@@ -1303,6 +1304,124 @@ export const setDefaultDeliveryAddress = async (id) => {
     return { success: true, data: data };
   } catch (error) {
     console.error('기본 배송지 설정 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+// ============================================
+// Notification API
+// ============================================
+
+// 알림 목록 조회
+export const getNotificationsApi = async (page = 0, size = 20, userId) => {
+  try {
+    if (!userId) {
+      console.warn('[API] getNotificationsApi: userId가 없습니다.');
+      return { success: false, message: 'userId가 필요합니다.' };
+    }
+
+    const url = `${NOTIFICATION_API_BASE_URL}/notification?page=${page}&size=${size}&userId=${userId}`;
+    console.log('[API] 알림 조회 요청:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('[API] 알림 조회 응답 상태:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] 알림 조회 실패:', errorText);
+      const errorData = errorText ? JSON.parse(errorText) : {};
+      return { success: false, message: errorData.message || '알림 조회 실패', status: response.status };
+    }
+
+    const data = await response.json();
+    console.log('[API] 알림 조회 성공:', data);
+    return { success: true, data: data };
+  } catch (error) {
+    console.error('[API] 알림 조회 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+// 읽지 않은 알림 개수 조회
+export const getUnreadNotificationCountApi = async (userId) => {
+  try {
+    if (!userId) {
+      return { success: false, data: 0 };
+    }
+
+    const response = await fetch(`${NOTIFICATION_API_BASE_URL}/notification/unread-count?userId=${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return { success: false, data: 0 };
+    }
+
+    const data = await response.json();
+    return { success: true, data: data };
+  } catch (error) {
+    console.error('읽지 않은 알림 개수 조회 오류:', error);
+    return { success: false, data: 0 };
+  }
+};
+
+// 알림 읽음 처리
+export const markNotificationAsReadApi = async (notificationId, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, message: 'userId가 필요합니다.' };
+    }
+
+    const response = await fetch(`${NOTIFICATION_API_BASE_URL}/notification/${notificationId}/read?userId=${userId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.message || '알림 읽음 처리 실패', status: response.status };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('알림 읽음 처리 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+// 모든 알림 읽음 처리
+export const markAllNotificationsAsReadApi = async (userId) => {
+  try {
+    if (!userId) {
+      return { success: false, message: 'userId가 필요합니다.' };
+    }
+
+    const response = await fetch(`${NOTIFICATION_API_BASE_URL}/notification/read-all?userId=${userId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.message || '모든 알림 읽음 처리 실패', status: response.status };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('모든 알림 읽음 처리 오류:', error);
     return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
   }
 };

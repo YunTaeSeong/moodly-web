@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { isLoggedIn, deleteCookie, getCookie, isAdmin } from '../utils/cookie';
+import { isLoggedIn, deleteCookie } from '../utils/cookie';
 import { logout as authLogout } from '../utils/authApi';
-import { allProducts } from '../utils/products';
-import { searchProducts } from '../utils/api';
-import { getNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead, deleteAllNotifications } from '../utils/notification';
+import { searchProducts, getNotificationsApi, getUnreadNotificationCountApi, markNotificationAsReadApi, markAllNotificationsAsReadApi } from '../utils/api';
+import { getUserIdFromToken } from '../utils/token';
+import { getAccessToken } from '../utils/token';
 import CategorySidebar from './CategorySidebar';
 import './Header.css';
+
+const NOTIFICATION_API_BASE_URL = process.env.REACT_APP_NOTIFICATION_API_BASE_URL || 'http://localhost:8086';
 
 function Header() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -20,6 +22,7 @@ function Header() {
   const categoryMenuRef = useRef(null);
   const searchRef = useRef(null);
   const notificationRef = useRef(null);
+  const sseEventSourceRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -29,33 +32,156 @@ function Header() {
   };
 
   // 알림 목록 가져오기
-  const loadNotifications = () => {
-    if (isLoggedIn()) {
-      const userEmail = getCookie('userEmail') || '';
-      const username = getCookie('username') || 'test';
-      const userId = isAdmin() ? 'admin' : (userEmail || username);
-      const userNotifications = getNotifications(userId);
-      setNotifications(userNotifications);
-      setUnreadCount(getUnreadNotificationCount(userId));
+  const loadNotifications = async () => {
+    if (!isLoggedIn()) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    try {
+      const userId = getUserIdFromToken();
+      if (!userId) {
+        return;
+      }
+
+      // 알림 목록 조회
+      const notificationsResult = await getNotificationsApi(0, 20, userId);
+      console.log('[Header] 알림 조회 결과:', notificationsResult);
+      
+      if (notificationsResult.success && notificationsResult.data) {
+        console.log('[Header] 알림 데이터:', notificationsResult.data);
+        // Page 객체에서 content 추출
+        const content = notificationsResult.data.content || notificationsResult.data || [];
+        console.log('[Header] 알림 content:', content);
+        
+        const mappedNotifications = content.map(n => ({
+          id: n.id,
+          title: n.title,
+          message: n.notificationMessage || n.message || n.notification_message,
+          link: n.link,
+          read: n.isRead !== undefined ? n.isRead : (n.is_read !== undefined ? n.is_read : false),
+          createdAt: n.createdAt || n.created_at
+        }));
+        
+        console.log('[Header] 매핑된 알림:', mappedNotifications);
+        setNotifications(mappedNotifications);
+      } else {
+        console.warn('[Header] 알림 조회 실패:', notificationsResult);
+        setNotifications([]);
+      }
+
+      // 읽지 않은 알림 개수 조회
+      const countResult = await getUnreadNotificationCountApi(userId);
+      if (countResult.success) {
+        setUnreadCount(countResult.data || 0);
+      }
+    } catch (error) {
+      console.error('알림 로드 오류:', error);
+    }
+  };
+
+    // SSE 연결 시작
+    const startSSE = () => {
+        if (!isLoggedIn()) {
+            return;
+        }
+
+        const userId = getUserIdFromToken();
+        if (!userId) {
+            console.warn('SSE 연결 실패: userId를 가져올 수 없습니다.');
+            return;
+        }
+
+        // 기존 연결이 있으면 닫기
+        if (sseEventSourceRef.current) {
+            sseEventSourceRef.current.close();
+        }
+
+        try {
+            const url = `${NOTIFICATION_API_BASE_URL}/notification/sse?userId=${userId}`;
+            const eventSource = new EventSource(url);
+
+      eventSource.onopen = () => {
+        console.log('[SSE] 연결 성공');
+      };
+
+      eventSource.addEventListener('notification', (event) => {
+        try {
+          const notification = JSON.parse(event.data);
+          console.log('[SSE] 알림 수신:', notification);
+          
+          // 새 알림을 목록 맨 위에 추가
+          setNotifications(prev => [{
+            id: notification.id,
+            title: notification.title,
+            message: notification.notificationMessage || notification.message,
+            link: notification.link,
+            read: notification.isRead || false,
+            createdAt: notification.createdAt
+          }, ...prev]);
+
+          // 읽지 않은 알림 개수 증가
+          if (!notification.isRead) {
+            setUnreadCount(prev => prev + 1);
+          }
+
+          // 알림 목록 새로고침
+          loadNotifications();
+        } catch (error) {
+          console.error('[SSE] 알림 파싱 오류:', error);
+        }
+      });
+
+      eventSource.addEventListener('heartbeat', (event) => {
+        console.log('[SSE] Heartbeat:', event.data);
+      });
+
+      eventSource.onerror = (error) => {
+        console.error('[SSE] 연결 오류:', error);
+        eventSource.close();
+        
+        // 3초 후 재연결 시도
+        setTimeout(() => {
+          if (isLoggedIn()) {
+            startSSE();
+          }
+        }, 3000);
+      };
+
+      sseEventSourceRef.current = eventSource;
+    } catch (error) {
+      console.error('[SSE] 연결 실패:', error);
+    }
+  };
+
+  // SSE 연결 종료
+  const stopSSE = () => {
+    if (sseEventSourceRef.current) {
+      sseEventSourceRef.current.close();
+      sseEventSourceRef.current = null;
     }
   };
 
   useEffect(() => {
     // 컴포넌트 마운트 시 로그인 상태 확인
     checkLoginStatus();
-    loadNotifications();
-
-    // 주기적으로 로그인 상태 확인 (쿠키 변경 감지)
-    const interval = setInterval(() => {
-      checkLoginStatus();
+    
+    if (isLoggedIn()) {
       loadNotifications();
-    }, 1000);
+      startSSE();
+    } else {
+      stopSSE();
+      setNotifications([]);
+      setUnreadCount(0);
+    }
 
     // location 변경 시에도 로그인 상태 확인
     checkLoginStatus();
-    loadNotifications();
 
-    return () => clearInterval(interval);
+    return () => {
+      stopSSE();
+    };
   }, [location]);
 
   // 검색어 변경 핸들러
@@ -121,9 +247,18 @@ function Header() {
   }, []);
 
   // 알림 클릭 핸들러
-  const handleNotificationClick = (notification) => {
-    markNotificationAsRead(notification.id);
-    loadNotifications();
+  const handleNotificationClick = async (notification) => {
+    if (!notification.read) {
+      try {
+        const userId = getUserIdFromToken();
+        if (userId) {
+          await markNotificationAsReadApi(notification.id, userId);
+          loadNotifications();
+        }
+      } catch (error) {
+        console.error('알림 읽음 처리 오류:', error);
+      }
+    }
     setShowNotificationMenu(false);
     if (notification.link) {
       navigate(notification.link);
@@ -131,27 +266,19 @@ function Header() {
   };
 
   // 모든 알림 읽음 처리
-  const handleMarkAllAsRead = () => {
-    if (isLoggedIn()) {
-      const userEmail = getCookie('userEmail') || '';
-      const username = getCookie('username') || 'test';
-      const userId = isAdmin() ? 'admin' : (userEmail || username);
-      markAllNotificationsAsRead(userId);
-      loadNotifications();
+  const handleMarkAllAsRead = async () => {
+    if (!isLoggedIn()) {
+      return;
     }
-  };
 
-  // 모든 알림 삭제
-  const handleDeleteAllNotifications = () => {
-    if (isLoggedIn()) {
-      if (window.confirm('모든 알림을 삭제하시겠습니까?')) {
-        const userEmail = getCookie('userEmail') || '';
-        const username = getCookie('username') || 'test';
-        const userId = isAdmin() ? 'admin' : (userEmail || username);
-        deleteAllNotifications(userId);
+    try {
+      const userId = getUserIdFromToken();
+      if (userId) {
+        await markAllNotificationsAsReadApi(userId);
         loadNotifications();
-        setShowNotificationMenu(false); // 알림 드롭다운 닫기
       }
+    } catch (error) {
+      console.error('모든 알림 읽음 처리 오류:', error);
     }
   };
 
@@ -161,6 +288,9 @@ function Header() {
 
   const handleLogoutClick = async () => {
     try {
+      // SSE 연결 종료
+      stopSSE();
+      
       // auth-service의 logout API 호출 및 토큰 삭제
       await authLogout();
       
@@ -171,6 +301,8 @@ function Header() {
       
       // 로그인 상태 업데이트
       setLoggedIn(false);
+      setNotifications([]);
+      setUnreadCount(0);
       
       // 홈으로 이동
       navigate('/');
@@ -180,10 +312,13 @@ function Header() {
     } catch (error) {
       console.error('로그아웃 중 오류:', error);
       // 에러가 발생해도 로그아웃 처리
+      stopSSE();
       deleteCookie('isLoggedIn');
       deleteCookie('username');
       deleteCookie('userEmail');
       setLoggedIn(false);
+      setNotifications([]);
+      setUnreadCount(0);
       navigate('/');
       window.location.reload();
     }
@@ -276,7 +411,12 @@ function Header() {
               <div 
                 className="notification-wrapper"
                 ref={notificationRef}
-                onClick={() => setShowNotificationMenu(!showNotificationMenu)}
+                onClick={() => {
+                  setShowNotificationMenu(!showNotificationMenu);
+                  if (!showNotificationMenu) {
+                    loadNotifications();
+                  }
+                }}
               >
                 <button className="icon-link notification-icon-btn" title="알림">
                   <svg 
@@ -312,17 +452,6 @@ function Header() {
                             모두 읽음
                           </button>
                         )}
-                        {notifications.length > 0 && (
-                          <button 
-                            className="delete-all-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteAllNotifications();
-                            }}
-                          >
-                            모두 삭제
-                          </button>
-                        )}
                       </div>
                     </div>
                     <div className="notification-list">
@@ -338,15 +467,22 @@ function Header() {
                             onClick={() => handleNotificationClick(notification)}
                           >
                             <div className="notification-content">
-                              <div className="notification-title">{notification.title}</div>
-                              <div className="notification-message">{notification.message}</div>
+                              <div className="notification-title">{notification.title || '알림'}</div>
+                              <div className="notification-message">
+                                {notification.message || notification.notificationMessage || notification.notification_message || ''}
+                              </div>
                               <div className="notification-time">
-                                {new Date(notification.createdAt).toLocaleString('ko-KR', {
+                                {notification.createdAt ? new Date(notification.createdAt).toLocaleString('ko-KR', {
                                   month: 'short',
                                   day: 'numeric',
                                   hour: '2-digit',
                                   minute: '2-digit'
-                                })}
+                                }) : (notification.created_at ? new Date(notification.created_at).toLocaleString('ko-KR', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : '')}
                               </div>
                             </div>
                             {!notification.read && <div className="notification-dot"></div>}
@@ -415,4 +551,3 @@ function Header() {
 }
 
 export default Header;
-
