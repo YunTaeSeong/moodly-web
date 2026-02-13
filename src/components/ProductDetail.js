@@ -12,7 +12,7 @@ import { getReviewsByProductId } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
-import { getUserIdFromToken } from '../utils/token';
+import { getUserIdFromToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi } from '../utils/api';
 import './ProductDetail.css';
 
@@ -1508,14 +1508,17 @@ function ProductDetail() {
             )}
           </div>
         );
-      case 'inquiry':
+      case 'inquiry': {
+        const isAdminUser = hasRolesInToken() ? isAdminFromToken() : isAdmin();
         return (
           <div className="tab-content-inquiry">
             <div className="inquiry-header">
               <h3>상품 문의</h3>
-              <button className="inquiry-write-btn" onClick={handleOpenInquiryModal}>
-                문의하기
-              </button>
+              {!isAdminUser && (
+                <button className="inquiry-write-btn" onClick={handleOpenInquiryModal}>
+                  문의하기
+                </button>
+              )}
             </div>
             <div className="inquiry-notice">
               <h4>상품 문의 안내</h4>
@@ -1637,6 +1640,7 @@ function ProductDetail() {
             )}
           </div>
         );
+      }
       case 'return':
         return (
           <div className="tab-content-return">
