@@ -238,6 +238,55 @@ export const logout = async () => {
   }
 };
 
+// 카카오 로그인 API
+export const kakaoLogin = async (code) => {
+  try {
+    console.log('[KakaoLogin] 카카오 로그인 시도:', { code, baseURL: AUTH_API_BASE_URL });
+    
+    const response = await authApi.post('/auth/kakao/login', {
+      code,
+    });
+
+    console.log('[KakaoLogin] 카카오 로그인 성공:', response.data);
+
+    const { accessToken, refreshToken } = response.data;
+    
+    // 토큰 저장
+    setTokens(accessToken, refreshToken);
+
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    console.error('[KakaoLogin] 카카오 로그인 에러:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+
+    let errorMessage = '카카오 로그인에 실패했습니다.';
+    
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 400) {
+        errorMessage = error.response.data?.message || '카카오 인가 코드가 유효하지 않습니다.';
+      } else if (status === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else {
+        errorMessage = error.response.data?.message || `카카오 로그인 중 오류가 발생했습니다. (${status})`;
+      }
+    }
+
+    return {
+      success: false,
+      message: errorMessage,
+      status: error.response?.status || 0,
+      error: error,
+    };
+  }
+};
+
 // authApi export (다른 곳에서 사용할 수 있도록)
 export default authApi;
 

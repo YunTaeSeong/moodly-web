@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { setCookie } from '../utils/cookie';
 import { authenticateUser, findPassword } from '../utils/user';
-import { login } from '../utils/authApi';
+import { login, kakaoLogin } from '../utils/authApi';
 import { requestFindId, confirmFindId, requestPasswordReset } from '../utils/api';
 import { hasTokens } from '../utils/token';
 import './Login.css';
@@ -25,6 +25,82 @@ function Login() {
   const [codeTimer, setCodeTimer] = useState(null); // 인증코드 입력 타이머 (3분)
   const [timeLeft, setTimeLeft] = useState(180); // 남은 시간 (초 단위)
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // 카카오 로그인 콜백 처리
+  useEffect(() => {
+    const code = searchParams.get('code');
+    const error = searchParams.get('error');
+    
+    if (code) {
+      handleKakaoCallback(code);
+    } else if (error) {
+      setError('카카오 로그인에 실패했습니다.');
+    }
+  }, [searchParams]);
+
+  // 카카오 로그인 콜백 처리
+  const handleKakaoCallback = async (code) => {
+    setError('');
+    try {
+      const result = await kakaoLogin(code);
+      
+      if (result.success) {
+        setCookie('isLoggedIn', 'true', 7);
+        navigate('/');
+      } else {
+        setError(result.message || '카카오 로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('카카오 로그인 콜백 처리 오류:', error);
+      setError('카카오 로그인 중 예기치 않은 오류가 발생했습니다.');
+    }
+  };
+
+  // 카카오 로그인 시작
+  const handleKakaoLogin = () => {
+    // 환경 변수 읽기 (React는 REACT_APP_ 접두사 필요)
+    const KAKAO_CLIENT_ID = process.env.REACT_APP_KAKAO_CLIENT_ID;
+    const KAKAO_REDIRECT_URI = process.env.REACT_APP_KAKAO_REDIRECT_URI || 'http://localhost:3000/auth/kakao/callback';
+    
+    // 디버깅: 환경 변수 상세 확인
+    console.log('[KakaoLogin] ===== 환경 변수 디버깅 =====');
+    console.log('[KakaoLogin] process.env.REACT_APP_KAKAO_CLIENT_ID:', process.env.REACT_APP_KAKAO_CLIENT_ID);
+    console.log('[KakaoLogin] process.env.REACT_APP_KAKAO_REDIRECT_URI:', process.env.REACT_APP_KAKAO_REDIRECT_URI);
+    console.log('[KakaoLogin] KAKAO_CLIENT_ID:', KAKAO_CLIENT_ID);
+    console.log('[KakaoLogin] KAKAO_CLIENT_ID 타입:', typeof KAKAO_CLIENT_ID);
+    console.log('[KakaoLogin] KAKAO_CLIENT_ID 길이:', KAKAO_CLIENT_ID?.length);
+    console.log('[KakaoLogin] ============================');
+    
+    // Client ID 검증 (더 엄격하게)
+    const invalidValues = [
+      undefined,
+      null,
+      '',
+      'your-kakao-client-id',
+      'your-kakao-rest-api-key-here',
+      'your-kakao-client-id-here'
+    ];
+    
+    if (!KAKAO_CLIENT_ID || invalidValues.includes(KAKAO_CLIENT_ID) || KAKAO_CLIENT_ID.length < 10) {
+      console.error('[KakaoLogin] Client ID 검증 실패:', KAKAO_CLIENT_ID);
+      alert(
+        '카카오 Client ID가 설정되지 않았습니다.\n\n' +
+        '해결 방법:\n' +
+        '1. moodly-web/.env 파일을 열어주세요\n' +
+        '2. REACT_APP_KAKAO_CLIENT_ID=여기에_실제_REST_API_키 입력\n' +
+        '3. 프론트엔드 서버를 완전히 종료 후 재시작 (npm start)\n\n' +
+        '현재 값: ' + (KAKAO_CLIENT_ID || 'undefined')
+      );
+      return;
+    }
+    
+    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${encodeURIComponent(KAKAO_REDIRECT_URI)}&response_type=code`;
+    
+    console.log('[KakaoLogin] 카카오 인증 URL 생성 완료');
+    console.log('[KakaoLogin] URL:', kakaoAuthUrl);
+    window.location.href = kakaoAuthUrl;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -302,6 +378,24 @@ function Login() {
             <p>관리자 계정: 아이디 - admin@admin.com, 비밀번호 - admin</p>
           </div>
         </form>
+
+        {/* 카카오 로그인 버튼 */}
+        <div className="social-login-section">
+          <div className="social-login-divider">
+            <span>또는</span>
+          </div>
+          <button 
+            type="button" 
+            className="kakao-login-button"
+            onClick={handleKakaoLogin}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
+              <path d="M10 0C4.477 0 0 3.582 0 8c0 2.797 1.797 5.27 4.5 6.75L3.5 20l5.5-3.1c.5.05 1 .1 1.5.1 5.523 0 10-3.582 10-8S15.523 0 10 0z" fill="#FEE500"/>
+              <path d="M10 2c3.866 0 7 2.462 7 5.5S13.866 13 10 13c-.5 0-1-.05-1.5-.15L5 15.5l1-2.25C3.5 11.8 3 9.95 3 7.5 3 4.462 6.134 2 10 2z" fill="#000"/>
+            </svg>
+            카카오 로그인
+          </button>
+        </div>
       </div>
 
       {/* ID/PW 찾기 모달 */}

@@ -45,6 +45,7 @@ function App() {
             <Route path="/event/:id" element={<EventDetail />} />
             <Route path="/category/:id" element={<CategoryDetail />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/auth/kakao/callback" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cart" element={<Cart />} />
