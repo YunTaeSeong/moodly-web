@@ -209,6 +209,11 @@ function MyPage() {
 
   // 찜한 상품 제거 핸들러
   const handleRemoveWishlist = async (productId) => {
+    // 개별 "삭제"는 해당 상품 체크박스를 먼저 선택했을 때만 동작
+    if (!selectedWishlistIds.includes(productId)) {
+      window.alert('삭제할 상품을 체크박스로 선택해주세요.');
+      return;
+    }
     if (isLoggedIn()) {
       const result = await removeWishlistItem(productId);
       if (!result.success && !result.notExists) {

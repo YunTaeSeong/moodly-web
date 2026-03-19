@@ -1223,6 +1223,7 @@ function ProductDetail() {
         if (result.success || result.notExists) {
           removeFromWishlist(product.id);
           setWishlistStatus(false);
+          window.alert('찜한 상품에서 삭제되었습니다.');
         } else {
           if (result.status === 401) navigate('/login');
           else window.alert(result.message || '찜 해제에 실패했습니다.');
@@ -1230,6 +1231,7 @@ function ProductDetail() {
       } else {
         removeFromWishlist(product.id);
         setWishlistStatus(false);
+        window.alert('찜한 상품에서 삭제되었습니다.');
       }
     } else {
       if (isLoggedIn()) {
@@ -1237,7 +1239,7 @@ function ProductDetail() {
         if (result.success || result.alreadyExists) {
           addToWishlist(product);
           setWishlistStatus(true);
-          if (result.alreadyExists) window.alert('이미 찜한 상품입니다.');
+          window.alert('찜한 상품에 추가되었습니다.');
         } else {
           if (result.status === 401) navigate('/login');
           else window.alert(result.message || '찜 추가에 실패했습니다.');
@@ -1245,6 +1247,7 @@ function ProductDetail() {
       } else {
         addToWishlist(product);
         setWishlistStatus(true);
+        window.alert('찜한 상품에 추가되었습니다.');
       }
     }
   };
