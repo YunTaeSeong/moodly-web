@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { saveOrder } from '../utils/order';
+import { postUserCouponUse } from '../utils/api';
 import './PaymentSuccess.css';
 
 function PaymentSuccess() {
@@ -8,34 +9,77 @@ function PaymentSuccess() {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    // URL 파라미터에서 결제 정보 가져오기
     const paymentKey = searchParams.get('paymentKey');
     const orderId = searchParams.get('orderId');
     const amount = searchParams.get('amount');
 
-    // 실제 운영 환경에서는 서버에 결제 승인 요청을 보내야 합니다
-    // 여기서는 클라이언트 사이드에서만 처리
-    // sessionStorage에서 주문 데이터 가져오기
     const pendingOrderData = sessionStorage.getItem('pendingOrder');
-    if (pendingOrderData) {
+    if (!pendingOrderData) {
+      if (paymentKey && orderId && amount) {
+        console.log('결제 성공:', { paymentKey, orderId, amount });
+      }
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
       try {
         const orderData = JSON.parse(pendingOrderData);
-        // 주문 정보 저장 (URL 파라미터가 있으면 사용, 없으면 sessionStorage의 데이터 사용)
+        const finalOrderId = orderId || orderData.orderId;
+
+        let subtotalForCoupon =
+          orderData.orderSubtotalBeforeDiscount != null
+            ? Number(orderData.orderSubtotalBeforeDiscount)
+            : NaN;
+        if (Number.isNaN(subtotalForCoupon)) {
+          if (Array.isArray(orderData.orderItems) && orderData.orderItems.length > 0) {
+            subtotalForCoupon = orderData.orderItems.reduce(
+              (s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1),
+              0
+            );
+          } else if (orderData.product && orderData.quantity) {
+            subtotalForCoupon =
+              (Number(orderData.product.price) || 0) * Number(orderData.quantity);
+          } else {
+            subtotalForCoupon = 0;
+          }
+        }
+
+        const c = orderData.coupon;
+        if (
+          c &&
+          c.couponId != null &&
+          (c.userCouponId != null || c.id != null) &&
+          !cancelled
+        ) {
+          const userCouponId = c.userCouponId != null ? c.userCouponId : c.id;
+          const ur = await postUserCouponUse(userCouponId, finalOrderId, subtotalForCoupon);
+          if (!ur.success) {
+            console.warn('[PaymentSuccess] 서버 쿠폰 사용 반영 실패:', ur.message);
+          }
+        }
+
+        if (cancelled) return;
+
         saveOrder({
           ...orderData,
-          orderId: orderId || orderData.orderId,
-          amount: amount ? parseInt(amount) : orderData.amount
+          orderId: finalOrderId,
+          amount: amount ? parseInt(amount, 10) : orderData.amount,
         });
-        // 임시 데이터 삭제
         sessionStorage.removeItem('pendingOrder');
-        console.log('주문이 저장되었습니다:', { paymentKey, orderId: orderId || orderData.orderId, amount });
+        console.log('주문이 저장되었습니다:', {
+          paymentKey,
+          orderId: finalOrderId,
+          amount,
+        });
       } catch (error) {
         console.error('주문 저장 중 오류:', error);
       }
-    } else if (paymentKey && orderId && amount) {
-      // sessionStorage에 데이터가 없는 경우 (직접 URL 접근 등)
-      console.log('결제 성공:', { paymentKey, orderId, amount });
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   return (

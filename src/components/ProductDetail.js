@@ -13,7 +13,7 @@ import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
 import { getUserIdFromToken } from '../utils/token';
-import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi } from '../utils/api';
+import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons } from '../utils/api';
 import './ProductDetail.css';
 
 // 샘플 상품 데이터 (실제로는 API나 상태 관리에서 가져올 수 있습니다)
@@ -866,7 +866,7 @@ function ProductDetail() {
   };
 
   // 쿠폰 모달 열기
-  const handleOpenCouponModal = () => {
+  const handleOpenCouponModal = async () => {
     // 로그인 확인
     if (!isLoggedIn()) {
       window.alert('로그인이 필요합니다.');
@@ -886,24 +886,20 @@ function ProductDetail() {
       }
     }
 
-    // 사용 가능한 쿠폰 가져오기
     checkCouponExpiry();
-    const coupons = getReceivedCoupons();
-    const usableCoupons = coupons.filter(coupon => {
-      // 사용 가능한 상태인지 확인
+    const totalAmount = product.price * quantity;
+    const apiRes = await fetchUserCoupons();
+    const fromApi = apiRes.success ? (apiRes.data || []) : [];
+    const localCoupons = getReceivedCoupons();
+    const merged = [...fromApi, ...localCoupons];
+    const usableCoupons = merged.filter(coupon => {
       if (coupon.status !== 'received') return false;
-      
-      // 만료일 확인
-      const validUntil = new Date(coupon.validUntil);
-      if (validUntil < new Date()) return false;
-
-      // 상품별 쿠폰인 경우 해당 상품에만 적용 가능
+      if (coupon.validUntil) {
+        const validUntil = new Date(coupon.validUntil);
+        if (!Number.isNaN(validUntil.getTime()) && validUntil < new Date()) return false;
+      }
       if (coupon.productId && coupon.productId !== product.id) return false;
-
-      // 최소 구매 금액 확인
-      const totalAmount = product.price * quantity;
       if (coupon.minPurchase && totalAmount < coupon.minPurchase) return false;
-
       return true;
     });
 
@@ -957,13 +953,16 @@ function ProductDetail() {
       quantity: quantity,
       deliveryAddress: deliveryAddress,
       coupon: selectedCoupon,
-      discountAmount: discountAmount
+      discountAmount: discountAmount,
+      orderSubtotalBeforeDiscount: totalAmount,
     };
 
     try {
-      // 쿠폰 사용 처리
       if (selectedCoupon) {
-        applyCoupon(selectedCoupon.id);
+        const locals = getReceivedCoupons();
+        if (locals.some(c => String(c.id) === String(selectedCoupon.id))) {
+          applyCoupon(selectedCoupon.id);
+        }
       }
 
       // 결제 데이터를 sessionStorage에 임시 저장 (결제 성공 시 주문 저장용)

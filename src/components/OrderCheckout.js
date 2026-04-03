@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
-import { getDeliveryAddresses, createDeliveryAddress } from '../utils/api';
+import { getDeliveryAddresses, createDeliveryAddress, fetchUserCoupons } from '../utils/api';
 import { processPayment, generateOrderId } from '../utils/payment';
 import { getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { saveDeliveryAddress } from '../utils/delivery';
@@ -29,6 +29,8 @@ function OrderCheckout() {
     isDefault: false
   });
   const setNewAddressFormRef = useRef(null);
+  /** 쿠폰 목록 비동기 로드가 겹칠 때, 오래된 요청(subtotal=0 등)이 나중에 끝나 빈 목록을 덮어쓰지 않도록 함 */
+  const couponLoadSeqRef = useRef(0);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -86,7 +88,6 @@ function OrderCheckout() {
   useEffect(() => {
     if (!isLoggedIn()) return;
     loadDeliveryAddresses();
-    loadAvailableCoupons();
   }, []);
 
   const loadDeliveryAddresses = async () => {
@@ -106,21 +107,34 @@ function OrderCheckout() {
     setLoadingAddresses(false);
   };
 
-  const loadAvailableCoupons = () => {
+  const loadAvailableCoupons = async () => {
+    const seq = ++couponLoadSeqRef.current;
     checkCouponExpiry();
-    const coupons = getReceivedCoupons();
     const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const usableCoupons = coupons.filter(coupon => {
+    const localCoupons = getReceivedCoupons();
+    const apiRes = await fetchUserCoupons();
+    if (seq !== couponLoadSeqRef.current) return;
+    const fromApi = apiRes.success ? (apiRes.data || []) : [];
+    const merged = [...fromApi, ...localCoupons];
+    const usableCoupons = merged.filter(coupon => {
       if (coupon.status !== 'received') return false;
-      const validUntil = new Date(coupon.validUntil);
-      if (validUntil < new Date()) return false;
+      if (coupon.validUntil) {
+        const validUntil = new Date(coupon.validUntil);
+        if (!Number.isNaN(validUntil.getTime()) && validUntil < new Date()) return false;
+      }
       if (coupon.minPurchase && subtotal < coupon.minPurchase) return false;
       return true;
     });
+    if (seq !== couponLoadSeqRef.current) return;
     setAvailableCoupons(usableCoupons);
   };
 
   useEffect(() => {
+    if (!isLoggedIn()) return;
+    if (orderItems.length === 0) {
+      setAvailableCoupons([]);
+      return;
+    }
     loadAvailableCoupons();
   }, [orderItems]);
 
@@ -264,7 +278,10 @@ function OrderCheckout() {
       : orderItems[0].name;
 
     if (selectedCoupon) {
-      applyCoupon(selectedCoupon.id);
+      const locals = getReceivedCoupons();
+      if (locals.some(c => String(c.id) === String(selectedCoupon.id))) {
+        applyCoupon(selectedCoupon.id);
+      }
     }
 
     const paymentData = {
@@ -277,7 +294,8 @@ function OrderCheckout() {
       fromCart,
       cartIds,
       coupon: selectedCoupon,
-      discountAmount
+      discountAmount,
+      orderSubtotalBeforeDiscount: subtotal,
     };
 
     try {
@@ -408,7 +426,10 @@ function OrderCheckout() {
                 <button 
                   type="button" 
                   className="coupon-change-btn"
-                  onClick={() => setShowCouponModal(true)}
+                  onClick={() => {
+                    void loadAvailableCoupons();
+                    setShowCouponModal(true);
+                  }}
                 >
                   변경
                 </button>
@@ -717,7 +738,7 @@ function OrderCheckout() {
                             onChange={() => setSelectedCoupon(coupon)}
                           />
                           <div className="coupon-option-content">
-                            <span className="coupon-option-label">즉시 할인</span>
+                            <span className="coupon-option-label">{coupon.name || '즉시 할인'}</span>
                             <span className="coupon-option-discount">-{couponDiscount.toLocaleString()}원</span>
                           </div>
                         </label>
@@ -742,9 +763,9 @@ function OrderCheckout() {
             {/* 하단 적용 버튼 */}
             <div className="coupon-modal-footer">
               <button
+                type="button"
                 className="coupon-apply-btn"
                 onClick={() => setShowCouponModal(false)}
-                disabled={!selectedCoupon && discountAmount === 0}
               >
                 {selectedCoupon 
                   ? `- ${discountAmount.toLocaleString()}원 할인 적용`

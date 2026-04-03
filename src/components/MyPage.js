@@ -2,13 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
-import { getAvailableCoupons, getReceivedCoupons, receiveCoupon, checkCouponExpiry } from '../utils/coupon';
 import { getOrders, getOrderCount, addTestOrder } from '../utils/order';
 import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from '../utils/review';
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
-import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi } from '../utils/api';
+import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi, fetchUserCoupons, fetchReceivableCoupons, issueCouponById } from '../utils/api';
 import { getUserIdFromToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { deleteCookie } from '../utils/cookie';
@@ -35,8 +34,11 @@ function MyPage() {
   const [activeMenu, setActiveMenu] = useState(getMenuFromPath());
   const [wishlist, setWishlist] = useState([]);
   const [selectedWishlistIds, setSelectedWishlistIds] = useState([]);
-  const [availableCoupons, setAvailableCoupons] = useState([]);
-  const [receivedCoupons, setReceivedCoupons] = useState([]);
+  const [myCoupons, setMyCoupons] = useState([]);
+  const [receivableCoupons, setReceivableCoupons] = useState([]);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
+  const [issuingCouponId, setIssuingCouponId] = useState(null);
   const [orders, setOrders] = useState([]);
   const [orderCount, setOrderCount] = useState(0);
   const [inquiryCount, setInquiryCount] = useState(0);
@@ -169,14 +171,45 @@ function MyPage() {
     setActiveMenu(menu);
   }, [location.pathname]);
 
-  // 쿠폰 목록 가져오기
+  // 쿠폰함: coupon-service API (받을 수 있는 쿠폰 + 내 쿠폰)
   useEffect(() => {
-    if (isLoggedIn() && activeMenu === 'coupon') {
-      checkCouponExpiry(); // 만료된 쿠폰 체크
-      setAvailableCoupons(getAvailableCoupons());
-      setReceivedCoupons(getReceivedCoupons());
-    }
+    if (!isLoggedIn() || activeMenu !== 'coupon') return;
+    let cancelled = false;
+    (async () => {
+      setCouponLoading(true);
+      setCouponError('');
+      const [mine, receivable] = await Promise.all([fetchUserCoupons(), fetchReceivableCoupons()]);
+      if (cancelled) return;
+      if (mine.success) {
+        setMyCoupons(mine.data || []);
+      } else {
+        setMyCoupons([]);
+        setCouponError(mine.message || '쿠폰 목록을 불러오지 못했습니다.');
+      }
+      if (receivable.success) {
+        setReceivableCoupons(receivable.data || []);
+      } else {
+        setReceivableCoupons([]);
+      }
+      setCouponLoading(false);
+    })();
+    return () => { cancelled = true; };
   }, [activeMenu]);
+
+  const handleReceiveCoupon = async (couponId) => {
+    if (issuingCouponId != null) return;
+    setIssuingCouponId(couponId);
+    const r = await issueCouponById(couponId);
+    setIssuingCouponId(null);
+    if (!r.success) {
+      window.alert(r.message || '쿠폰을 받지 못했습니다.');
+      return;
+    }
+    window.alert('쿠폰이 발급되었습니다.');
+    const [mine, receivable] = await Promise.all([fetchUserCoupons(), fetchReceivableCoupons()]);
+    if (mine.success) setMyCoupons(mine.data || []);
+    if (receivable.success) setReceivableCoupons(receivable.data || []);
+  };
 
   // 보안설정 메뉴 활성화 시 폼 초기화
   useEffect(() => {
@@ -282,18 +315,6 @@ function MyPage() {
       window.alert(`"${item.name}"이(가) 장바구니에 추가되었습니다.`);
     } else {
       window.alert(result.message || '장바구니 추가에 실패했습니다.');
-    }
-  };
-
-  // 쿠폰 받기 핸들러
-  const handleReceiveCoupon = (couponId) => {
-    const result = receiveCoupon(couponId);
-    if (result.success) {
-      window.alert(result.message);
-      setAvailableCoupons(getAvailableCoupons());
-      setReceivedCoupons(getReceivedCoupons());
-    } else {
-      window.alert(result.message);
     }
   };
 
@@ -1271,83 +1292,111 @@ function MyPage() {
         return (
           <div className="mypage-content-section">
             <h2>쿠폰함</h2>
-            
-            {/* 받을 수 있는 쿠폰 */}
-            <div className="coupon-section">
-              <h3 className="coupon-section-title">받을 수 있는 쿠폰</h3>
-              {availableCoupons.filter(c => c.status === 'available').length === 0 ? (
-                <div className="mypage-empty">
-                  <p>받을 수 있는 쿠폰이 없습니다.</p>
-                </div>
-              ) : (
-                <div className="coupon-list">
-                  {availableCoupons
-                    .filter(c => c.status === 'available')
-                    .map((coupon) => (
-                      <div key={coupon.id} className="coupon-card available">
+            {couponLoading && (
+              <div className="mypage-empty">
+                <p>쿠폰 목록을 불러오는 중...</p>
+              </div>
+            )}
+            {!couponLoading && couponError && (
+              <div className="mypage-empty">
+                <p>{couponError}</p>
+              </div>
+            )}
+            {!couponLoading && (
+              <>
+                <h3 className="mypage-subsection-title" style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '1.05rem' }}>
+                  받을 수 있는 쿠폰
+                </h3>
+                {receivableCoupons.length === 0 ? (
+                  <div className="mypage-empty" style={{ marginBottom: '1.5rem' }}>
+                    <p>받을 수 있는 쿠폰이 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="coupon-list" style={{ marginBottom: '2rem' }}>
+                    {receivableCoupons.map((coupon) => (
+                      <div key={`recv-${coupon.couponId}`} className="coupon-card received">
                         <div className="coupon-info">
                           <h4 className="coupon-name">{coupon.name}</h4>
-                          <p className="coupon-description">{coupon.description}</p>
                           <div className="coupon-details">
                             {coupon.discountType === 'fixed' ? (
                               <span className="coupon-discount">{coupon.discount.toLocaleString()}원 할인</span>
                             ) : (
-                              <span className="coupon-discount">{coupon.discount}% 할인</span>
+                              <span className="coupon-discount">{coupon.discount}% 할인 (전 상품)</span>
                             )}
                             <span className="coupon-condition">최소 구매금액: {coupon.minPurchase.toLocaleString()}원</span>
-                            <span className="coupon-validity">유효기간: ~{new Date(coupon.validUntil).toLocaleDateString('ko-KR')}</span>
+                            {coupon.validDays != null && (
+                              <span className="coupon-validity">발급일로부터 {coupon.validDays}일간 사용 가능</span>
+                            )}
                           </div>
                         </div>
-                        <button 
-                          className="coupon-receive-btn"
-                          onClick={() => handleReceiveCoupon(coupon.id)}
-                        >
-                          받기
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-
-            {/* 받은 쿠폰 */}
-            <div className="coupon-section">
-              <h3 className="coupon-section-title">내 쿠폰</h3>
-              {receivedCoupons.length === 0 ? (
-                <div className="mypage-empty">
-                  <p>받은 쿠폰이 없습니다.</p>
-                </div>
-              ) : (
-                <div className="coupon-list">
-                  {receivedCoupons.map((coupon) => (
-                    <div key={coupon.id} className={`coupon-card ${coupon.status}`}>
-                      <div className="coupon-info">
-                        <h4 className="coupon-name">{coupon.name}</h4>
-                        <p className="coupon-description">{coupon.description}</p>
-                        <div className="coupon-details">
-                          {coupon.discountType === 'fixed' ? (
-                            <span className="coupon-discount">{coupon.discount.toLocaleString()}원 할인</span>
-                          ) : (
-                            <span className="coupon-discount">{coupon.discount}% 할인</span>
-                          )}
-                          <span className="coupon-condition">최소 구매금액: {coupon.minPurchase.toLocaleString()}원</span>
-                          <span className="coupon-validity">유효기간: ~{new Date(coupon.validUntil).toLocaleDateString('ko-KR')}</span>
-                          {coupon.status === 'used' && (
-                            <span className="coupon-status used">사용완료</span>
-                          )}
-                          {coupon.status === 'expired' && (
-                            <span className="coupon-status expired">만료됨</span>
-                          )}
-                          {coupon.status === 'received' && (
-                            <span className="coupon-status received">사용가능</span>
-                          )}
+                        <div className="coupon-actions" style={{ marginTop: '0.75rem' }}>
+                          <button
+                            type="button"
+                            className="coupon-receive-btn"
+                            disabled={issuingCouponId === coupon.couponId}
+                            onClick={() => handleReceiveCoupon(coupon.couponId)}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              backgroundColor: '#007bff',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: issuingCouponId === coupon.couponId ? 'wait' : 'pointer',
+                            }}
+                          >
+                            {issuingCouponId === coupon.couponId ? '발급 중...' : '받기'}
+                          </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+
+                <h3 className="mypage-subsection-title" style={{ marginBottom: '0.75rem', fontSize: '1.05rem' }}>
+                  내 쿠폰
+                </h3>
+                {myCoupons.length === 0 ? (
+                  <div className="mypage-empty">
+                    <p>보유한 쿠폰이 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="coupon-list">
+                    {myCoupons.map((coupon) => (
+                      <div key={coupon.id} className={`coupon-card ${coupon.status}`}>
+                        <div className="coupon-info">
+                          <h4 className="coupon-name">{coupon.name}</h4>
+                          <div className="coupon-details">
+                            {coupon.discountType === 'fixed' ? (
+                              <span className="coupon-discount">{coupon.discount.toLocaleString()}원 할인</span>
+                            ) : (
+                              <span className="coupon-discount">{coupon.discount}% 할인 (전 상품)</span>
+                            )}
+                            <span className="coupon-condition">최소 구매금액: {coupon.minPurchase.toLocaleString()}원</span>
+                            {coupon.validUntil && (
+                              <span className="coupon-validity">
+                                유효기간: ~{new Date(coupon.validUntil).toLocaleString('ko-KR')}
+                              </span>
+                            )}
+                            {coupon.status === 'used' && (
+                              <span className="coupon-status used">사용완료</span>
+                            )}
+                            {coupon.status === 'expired' && (
+                              <span className="coupon-status expired">만료됨</span>
+                            )}
+                            {coupon.status === 'canceled' && (
+                              <span className="coupon-status expired">취소됨</span>
+                            )}
+                            {coupon.status === 'received' && (
+                              <span className="coupon-status received">사용가능</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         );
       case 'delivery':

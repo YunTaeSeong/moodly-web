@@ -5,6 +5,184 @@ const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:808
 const PRODUCT_API_BASE_URL = process.env.REACT_APP_PRODUCT_API_BASE_URL || 'http://localhost:8083';
 const CART_API_BASE_URL = process.env.REACT_APP_CART_API_BASE_URL || 'http://localhost:8084';
 const NOTIFICATION_API_BASE_URL = process.env.REACT_APP_NOTIFICATION_API_BASE_URL || 'http://localhost:8086';
+const COUPON_API_BASE_URL = process.env.REACT_APP_COUPON_API_BASE_URL || 'http://localhost:8087';
+
+/** coupon-service UserCouponDetailResponse → 결제/상품 쿠폰 UI용 형식 */
+export const mapUserCouponApiToFrontend = (row) => {
+  if (!row) return null;
+  const discountType = row.discountType === 'FIXED' ? 'fixed' : 'percent';
+  const statusMap = { ISSUED: 'received', USED: 'used', EXPIRED: 'expired', CANCELED: 'canceled' };
+  let status = statusMap[row.status] || 'received';
+  if (row.expiredAt && status === 'received') {
+    const exp = new Date(row.expiredAt);
+    if (!Number.isNaN(exp.getTime()) && exp < new Date()) status = 'expired';
+  }
+  return {
+    id: row.id,
+    userCouponId: row.id,
+    couponId: row.couponId,
+    name: row.couponName || '쿠폰',
+    description: row.couponName && String(row.couponName).includes('신규')
+      ? '회원가입을 축하합니다!'
+      : '전 상품 적용',
+    discount: row.discount != null ? Number(row.discount) : 0,
+    discountType,
+    minPurchase: row.minPurchase != null ? Number(row.minPurchase) : 0,
+    validUntil: row.expiredAt,
+    status,
+    receivedAt: row.receivedAt,
+  };
+};
+
+/**
+ * 내 쿠폰 목록 (coupon-service GET /coupon)
+ */
+export const fetchUserCoupons = async () => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', data: [], status: 401 };
+    }
+    const response = await fetch(`${COUPON_API_BASE_URL}/coupon`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || errorData.body?.message || '쿠폰 목록을 불러오지 못했습니다.',
+        data: [],
+        status: response.status,
+      };
+    }
+    const list = await response.json();
+    const normalized = (Array.isArray(list) ? list : []).map(mapUserCouponApiToFrontend);
+    return { success: true, data: normalized };
+  } catch (error) {
+    console.error('쿠폰 목록 조회 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', data: [], status: 0, originalError: error };
+  }
+};
+
+/** 마스터 쿠폰(CouponDto) → 받을 수 있는 쿠폰 카드용 */
+export const mapReceivableCouponApiToFrontend = (row) => {
+  if (!row) return null;
+  const discountType = row.discountType === 'FIXED' ? 'fixed' : 'percent';
+  return {
+    id: row.id,
+    couponId: row.id,
+    name: row.name || '쿠폰',
+    description: '회원가입을 축하합니다!',
+    discount: row.discount != null ? Number(row.discount) : 0,
+    discountType,
+    minPurchase: row.minPurchase != null ? Number(row.minPurchase) : 0,
+    validDays: row.validDays,
+  };
+};
+
+/**
+ * 받을 수 있는 쿠폰 목록 (GET /coupon/receivable)
+ */
+export const fetchReceivableCoupons = async () => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', data: [], status: 401 };
+    }
+    const response = await fetch(`${COUPON_API_BASE_URL}/coupon/receivable`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || errorData.body?.message || '목록을 불러오지 못했습니다.',
+        data: [],
+        status: response.status,
+      };
+    }
+    const list = await response.json();
+    const normalized = (Array.isArray(list) ? list : []).map(mapReceivableCouponApiToFrontend).filter(Boolean);
+    return { success: true, data: normalized };
+  } catch (error) {
+    console.error('받을 수 있는 쿠폰 조회 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', data: [], status: 0, originalError: error };
+  }
+};
+
+/**
+ * 쿠폰 수동 발급 (POST /coupon/{couponId}/issue)
+ */
+export const issueCouponById = async (couponId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    }
+    const response = await fetch(`${COUPON_API_BASE_URL}/coupon/${couponId}/issue`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || errorData.body?.message || '쿠폰을 받지 못했습니다.',
+        status: response.status,
+      };
+    }
+    return { success: true, status: response.status };
+  } catch (error) {
+    console.error('쿠폰 발급 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+/**
+ * 쿠폰 사용 처리 (결제 완료 후, 서버 쿠폰만)
+ */
+export const postUserCouponUse = async (userCouponId, orderId, orderAmount) => {
+  try {
+    const token = getAccessToken();
+    if (!token || userCouponId == null || !orderId) {
+      return { success: false, message: '쿠폰 사용 요청 정보가 부족합니다.' };
+    }
+    const params = new URLSearchParams({
+      orderId: String(orderId),
+      orderAmount: String(orderAmount),
+    });
+    const response = await fetch(`${COUPON_API_BASE_URL}/coupon/${userCouponId}/use?${params.toString()}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || errorData.body?.message || '쿠폰 사용 처리에 실패했습니다.',
+        status: response.status,
+      };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('쿠폰 사용 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', originalError: error };
+  }
+};
 
 // API 호출 기본 함수
 export const apiCall = async (endpoint, options = {}) => {
