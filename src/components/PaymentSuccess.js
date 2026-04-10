@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { saveOrder } from '../utils/order';
-import { postUserCouponUse } from '../utils/api';
+import { postUserCouponUse, confirmServerPayment } from '../utils/api';
 import './PaymentSuccess.css';
 
 function PaymentSuccess() {
@@ -45,12 +44,41 @@ function PaymentSuccess() {
           }
         }
 
+        const amt =
+          amount != null && amount !== ''
+            ? parseInt(amount, 10)
+            : Math.round(Number(orderData.amount));
+
+        let confirmSucceeded = false;
+        if (paymentKey && finalOrderId && !Number.isNaN(amt)) {
+          const cr = await confirmServerPayment({
+            paymentKey,
+            orderId: finalOrderId,
+            amount: amt,
+          });
+          confirmSucceeded = cr.success;
+          if (!cr.success) {
+            window.alert(
+              cr.message ||
+                '결제 승인 확인에 실패했습니다. 결제는 되었을 수 있으니 고객센터로 문의해 주세요.'
+            );
+          }
+        } else {
+          console.warn('[PaymentSuccess] Toss 파라미터 부족 — 승인 확인 생략', {
+            paymentKey,
+            finalOrderId,
+            amt,
+          });
+        }
+
+        if (cancelled) return;
+
         const c = orderData.coupon;
         if (
+          confirmSucceeded &&
           c &&
           c.couponId != null &&
-          (c.userCouponId != null || c.id != null) &&
-          !cancelled
+          (c.userCouponId != null || c.id != null)
         ) {
           const userCouponId = c.userCouponId != null ? c.userCouponId : c.id;
           const ur = await postUserCouponUse(userCouponId, finalOrderId, subtotalForCoupon);
@@ -59,13 +87,6 @@ function PaymentSuccess() {
           }
         }
 
-        if (cancelled) return;
-
-        saveOrder({
-          ...orderData,
-          orderId: finalOrderId,
-          amount: amount ? parseInt(amount, 10) : orderData.amount,
-        });
         sessionStorage.removeItem('pendingOrder');
         console.log('주문이 저장되었습니다:', {
           paymentKey,

@@ -30,9 +30,9 @@ export const processPayment = async (paymentData) => {
   try {
     const TossPayments = await loadTossPayments();
     
-    // 테스트용 클라이언트 키 (실제 운영 시에는 환경변수로 관리)
-    // 실제 운영 시: process.env.REACT_APP_TOSS_CLIENT_KEY 사용 권장
-    const clientKey = 'test_ck_ZLKGPx4M3MqXZvJ0QQ2w3BaWypv1';
+    const clientKey =
+      process.env.REACT_APP_TOSS_CLIENT_KEY ||
+      'test_ck_ZLKGPx4M3MqXZvJ0QQ2w3BaWypv1';
     
     const tossPayments = TossPayments(clientKey);
 

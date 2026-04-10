@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTodaySpecialProducts } from '../utils/api';
+import { displayListPriceFromSale } from '../utils/pricing';
 import './TodaySpecial.css';
 
 // 백엔드 미실행 시 사용할 fallback 데이터 (products 테이블에 있는 실제 상품들 - 할인율 있는 상품 최신순 10개)
@@ -115,7 +116,7 @@ function TodaySpecial() {
           const formattedProducts = result.data.map(product => {
             const price = product.price ? parseFloat(product.price) : 0;
             const discount = product.discount || 0;
-            const originalPrice = discount > 0 ? Math.round(price / (1 - discount / 100)) : price;
+            const originalPrice = displayListPriceFromSale(price, discount);
             
             return {
               id: product.id,

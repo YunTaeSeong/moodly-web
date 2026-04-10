@@ -3,18 +3,24 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { isWishlisted, addToWishlist, removeFromWishlist } from '../utils/wishlist';
 import { getDeliveryAddress, saveDeliveryAddress, hasDeliveryAddress } from '../utils/delivery';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
-import { processPayment, generateOrderId } from '../utils/payment';
+import { processPayment } from '../utils/payment';
 import { getInquiries, addInquiry } from '../utils/inquiry';
 import { receiveProductCoupon, getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
-import { saveOrder } from '../utils/order';
 import { allProducts } from '../utils/products';
 import { getReviewsByProductId } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
-import { getUserIdFromToken } from '../utils/token';
-import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons } from '../utils/api';
+import { getUserIdFromToken, getAccessToken } from '../utils/token';
+import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons, createServerOrder, prepareCartIdsForCheckout } from '../utils/api';
+import { orderLineTotal, displayListPriceFromSale } from '../utils/pricing';
 import './ProductDetail.css';
+
+/** 백엔드 Product.price(정가) + 할인율% 와 동일한 기준 */
+function catalogDiscountPercent(p) {
+  if (!p) return 0;
+  return p.productDiscount != null ? p.productDiscount : p.discount || 0;
+}
 
 // 샘플 상품 데이터 (실제로는 API나 상태 관리에서 가져올 수 있습니다)
 const products = {
@@ -507,14 +513,18 @@ function ProductDetail() {
           const defaultDescription = `${apiProduct.name}은(는) 프리미엄 품질의 제품으로, 고객 만족을 최우선으로 제작되었습니다. 세심한 주의를 기울여 만들어진 이 제품은 일상 생활에서 편리함과 만족감을 제공합니다.`;
           const defaultDetails = `• 프리미엄 품질 보증\n• 안전한 포장 및 배송\n• 빠른 배송 서비스\n• 1년 품질 보증\n• 고객 만족도 우수\n• 다양한 사용자 후기\n• 신뢰할 수 있는 브랜드\n• 환경 친화적 제품`;
           
+          const salePrice = apiProduct.price ? parseFloat(apiProduct.price) : 0;
+          const productDiscount = apiProduct.discount || 0;
           const formattedProduct = {
             id: apiProduct.id,
             name: apiProduct.name,
-            price: apiProduct.price ? parseFloat(apiProduct.price) : 0,
-            originalPrice: apiProduct.discount && apiProduct.discount > 0 
-              ? Math.round(parseFloat(apiProduct.price) / (1 - apiProduct.discount / 100))
-              : parseFloat(apiProduct.price),
-            discount: apiProduct.discount || 0,
+            price: salePrice,
+            productDiscount,
+            originalPrice:
+              productDiscount > 0
+                ? Math.round(salePrice / (1 - productDiscount / 100))
+                : undefined,
+            discount: productDiscount,
             image: apiProduct.image || '',
             description: apiProduct.description || defaultDescription,
             details: apiProduct.details || defaultDetails,
@@ -534,6 +544,7 @@ function ProductDetail() {
               id: fallbackProduct.id,
               name: fallbackProduct.name,
               price: fallbackProduct.price || 0,
+              productDiscount: fallbackProduct.discount || 0,
               originalPrice: fallbackProduct.originalPrice || fallbackProduct.price || 0,
               discount: fallbackProduct.discount || 0,
               image: fallbackProduct.image || '',
@@ -562,6 +573,7 @@ function ProductDetail() {
             id: fallbackProduct.id,
             name: fallbackProduct.name,
             price: fallbackProduct.price || 0,
+            productDiscount: fallbackProduct.discount || 0,
             originalPrice: fallbackProduct.originalPrice || fallbackProduct.price || 0,
             discount: fallbackProduct.discount || 0,
             image: fallbackProduct.image || '',
@@ -834,12 +846,15 @@ function ProductDetail() {
     { id: 'return', label: '교환/반품' }
   ];
 
+  const catalogPct = catalogDiscountPercent(product);
+  const catalogSubtotalForUi = orderLineTotal({ price: product.price, quantity });
+
   const handleQuantityChange = (delta) => {
     setQuantity((prev) => Math.max(1, prev + delta));
   };
 
   const handleSelect = () => {
-    const total = product.price * quantity;
+    const total = orderLineTotal({ price: product.price, quantity });
     setSelectedTotal({ quantity, total });
   };
 
@@ -887,7 +902,7 @@ function ProductDetail() {
     }
 
     checkCouponExpiry();
-    const totalAmount = product.price * quantity;
+    const totalAmount = orderLineTotal({ price: product.price, quantity });
     const apiRes = await fetchUserCoupons();
     const fromApi = apiRes.success ? (apiRes.data || []) : [];
     const localCoupons = getReceivedCoupons();
@@ -920,44 +935,70 @@ function ProductDetail() {
 
   // 최종 결제 진행
   const handleFinalPayment = async () => {
-    // 결제 금액 계산
-    const totalAmount = product.price * quantity;
+    if (!getAccessToken()) {
+      window.alert('주문·결제는 JWT 로그인이 필요합니다. 로그아웃 후 이메일 계정으로 다시 로그인해 주세요.');
+      navigate('/login', { replace: true });
+      return;
+    }
+    const catalogSubtotal = orderLineTotal({ price: product.price, quantity });
     let discountAmount = 0;
 
-    // 쿠폰 할인 금액 계산
     if (selectedCoupon) {
       if (selectedCoupon.discountType === 'fixed') {
         discountAmount = selectedCoupon.discount;
       } else if (selectedCoupon.discountType === 'percent') {
-        discountAmount = Math.floor(totalAmount * (selectedCoupon.discount / 100));
+        discountAmount = Math.floor(catalogSubtotal * (selectedCoupon.discount / 100));
       }
     }
 
-    const subtotal = Math.max(0, totalAmount - discountAmount);
-    const shippingFee = subtotal >= 15000 ? 0 : 3000; // 무료배송 조건
+    const subtotal = Math.max(0, catalogSubtotal - discountAmount);
+    const shippingFee = subtotal >= 15000 ? 0 : 3000;
     const finalAmount = subtotal + shippingFee;
 
-    // 주문 정보
-    const orderId = generateOrderId();
-    const orderName = quantity > 1 
+    const orderName = quantity > 1
       ? `${product.name} 외 ${quantity - 1}개`
       : product.name;
 
-    // 결제 데이터 준비
-    const paymentData = {
-      amount: finalAmount,
-      orderId: orderId,
-      orderName: orderName,
-      customerName: deliveryAddress.recipient || '고객님',
-      product: product,
-      quantity: quantity,
-      deliveryAddress: deliveryAddress,
-      coupon: selectedCoupon,
-      discountAmount: discountAmount,
-      orderSubtotalBeforeDiscount: totalAmount,
-    };
+    const orderItems = [{
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      productDiscount: catalogDiscountPercent(product),
+      quantity,
+      image: product.image
+    }];
 
     try {
+      const cartPrep = await prepareCartIdsForCheckout(orderItems, false, []);
+      if (!cartPrep.success) {
+        window.alert(cartPrep.message || '장바구니 준비에 실패했습니다.');
+        return;
+      }
+
+      const phone = deliveryAddress.phone || deliveryAddress.phoneNumber || '';
+      const userCouponId =
+        selectedCoupon && selectedCoupon.couponId != null ? selectedCoupon.id : null;
+
+      const orderRes = await createServerOrder({
+        cartIds: cartPrep.cartIds,
+        customerName: deliveryAddress.recipient || '고객님',
+        customerPhoneNumber: phone,
+        deliveryAddress,
+        couponId: userCouponId,
+        discountAmount,
+      });
+
+      if (!orderRes.success) {
+        window.alert(orderRes.message || '주문 생성에 실패했습니다.');
+        if (orderRes.errorCode === 'AUTHORIZATION_001' || orderRes.errorCode === 'CART_001') {
+          navigate('/cart', { replace: true });
+        }
+        return;
+      }
+
+      const srv = orderRes.data;
+      const payAmount = Math.round(Number(srv.finalAmount));
+
       if (selectedCoupon) {
         const locals = getReceivedCoupons();
         if (locals.some(c => String(c.id) === String(selectedCoupon.id))) {
@@ -965,10 +1006,23 @@ function ProductDetail() {
         }
       }
 
-      // 결제 데이터를 sessionStorage에 임시 저장 (결제 성공 시 주문 저장용)
-      sessionStorage.setItem('pendingOrder', JSON.stringify(paymentData));
+      const paymentData = {
+        amount: payAmount,
+        orderId: srv.orderId,
+        orderName,
+        customerName: deliveryAddress.recipient || '고객님',
+        product,
+        quantity,
+        deliveryAddress,
+        coupon: selectedCoupon,
+        discountAmount,
+        orderSubtotalBeforeDiscount: catalogSubtotal,
+        orderItems,
+        serverOrderId: srv.orderId,
+        serverOrderNumericId: srv.id,
+      };
 
-      // 토스페이먼츠 결제 처리
+      sessionStorage.setItem('pendingOrder', JSON.stringify(paymentData));
       await processPayment(paymentData);
       handleCloseCouponModal();
     } catch (error) {
@@ -990,6 +1044,8 @@ function ProductDetail() {
           id: product.id,
           name: product.name,
           price: product.price ?? product.originalPrice,
+          discount: catalogDiscountPercent(product),
+          productDiscount: catalogDiscountPercent(product),
           image: product.image,
           productId: product.id
         },
@@ -1724,18 +1780,20 @@ function ProductDetail() {
             <span className="purchase-count">구매 {product.purchaseCount || 0}</span>
           </div>
 
-          {/* 가격 정보 */}
+          {/* 가격 정보 — 핫딜/특가와 동일: 취소선은 역산 정가, 굵은 글씨는 DB 판매가 */}
           <div className="product-price-section">
-            {product.originalPrice && (
-              <span className="product-original-price">{product.originalPrice.toLocaleString()}원</span>
+            {catalogPct > 0 && (
+              <span className="product-original-price">
+                {displayListPriceFromSale(product.price, catalogPct).toLocaleString()}원
+              </span>
             )}
             <div className="price-row">
               <span className="product-detail-price">{product.price.toLocaleString()}원</span>
-              {product.discount && (
-                <span className="discount-badge">{product.discount}% 할인</span>
+              {catalogPct > 0 && (
+                <span className="discount-badge">{catalogPct}% 할인</span>
               )}
             </div>
-            {product.originalPrice && (
+            {catalogPct > 0 && (
               <span className="coupon-price-label">
                 쿠폰적용가
                 <svg className="info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1816,7 +1874,7 @@ function ProductDetail() {
                 <div className="coupon-modal-product-details">
                   <h4>{product.name}</h4>
                   <p>수량: {quantity}개</p>
-                  <p className="coupon-modal-product-price">상품금액: {(product.price * quantity).toLocaleString()}원</p>
+                  <p className="coupon-modal-product-price">상품금액: {catalogSubtotalForUi.toLocaleString()}원</p>
                 </div>
               </div>
 
@@ -1841,7 +1899,7 @@ function ProductDetail() {
                       <label>쿠폰 미사용</label>
                     </div>
                     {availableCoupons.map((coupon) => {
-                      const totalAmount = product.price * quantity;
+                      const totalAmount = catalogSubtotalForUi;
                       let discountAmount = 0;
                       if (coupon.discountType === 'fixed') {
                         discountAmount = coupon.discount;
@@ -1882,7 +1940,7 @@ function ProductDetail() {
               <div className="coupon-modal-summary">
                 <div className="coupon-modal-summary-row">
                   <span>상품금액</span>
-                  <span>{(product.price * quantity).toLocaleString()}원</span>
+                  <span>{catalogSubtotalForUi.toLocaleString()}원</span>
                 </div>
                 {selectedCoupon && (
                   <>
@@ -1890,12 +1948,11 @@ function ProductDetail() {
                       <span>쿠폰 할인</span>
                       <span className="coupon-discount-amount">
                         -{(() => {
-                          const totalAmount = product.price * quantity;
+                          const totalAmount = catalogSubtotalForUi;
                           if (selectedCoupon.discountType === 'fixed') {
                             return selectedCoupon.discount.toLocaleString();
-                          } else {
-                            return Math.floor(totalAmount * (selectedCoupon.discount / 100)).toLocaleString();
                           }
+                          return Math.floor(totalAmount * (selectedCoupon.discount / 100)).toLocaleString();
                         })()}원
                       </span>
                     </div>
@@ -1903,7 +1960,7 @@ function ProductDetail() {
                       <span>할인 후 금액</span>
                       <span>
                         {(() => {
-                          const totalAmount = product.price * quantity;
+                          const totalAmount = catalogSubtotalForUi;
                           let discountAmount = 0;
                           if (selectedCoupon.discountType === 'fixed') {
                             discountAmount = selectedCoupon.discount;
@@ -1920,7 +1977,7 @@ function ProductDetail() {
                   <span>배송비</span>
                   <span>
                     {(() => {
-                      const totalAmount = product.price * quantity;
+                      const totalAmount = catalogSubtotalForUi;
                       let discountAmount = 0;
                       if (selectedCoupon) {
                         if (selectedCoupon.discountType === 'fixed') {
@@ -1938,7 +1995,7 @@ function ProductDetail() {
                   <span>최종 결제금액</span>
                   <span className="coupon-modal-final-amount">
                     {(() => {
-                      const totalAmount = product.price * quantity;
+                      const totalAmount = catalogSubtotalForUi;
                       let discountAmount = 0;
                       if (selectedCoupon) {
                         if (selectedCoupon.discountType === 'fixed') {

@@ -1,11 +1,317 @@
 // API 호출 유틸리티
-import { getAccessToken } from './token';
+import { getAccessToken, getRefreshToken } from './token';
+import { refreshToken as refreshSessionTokens } from './authApi';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8082';
 const PRODUCT_API_BASE_URL = process.env.REACT_APP_PRODUCT_API_BASE_URL || 'http://localhost:8083';
 const CART_API_BASE_URL = process.env.REACT_APP_CART_API_BASE_URL || 'http://localhost:8084';
 const NOTIFICATION_API_BASE_URL = process.env.REACT_APP_NOTIFICATION_API_BASE_URL || 'http://localhost:8086';
 const COUPON_API_BASE_URL = process.env.REACT_APP_COUPON_API_BASE_URL || 'http://localhost:8087';
+const ORDER_API_BASE_URL = process.env.REACT_APP_ORDER_API_BASE_URL || 'http://localhost:8085';
+const PAYMENT_API_BASE_URL = process.env.REACT_APP_PAYMENT_API_BASE_URL || 'http://localhost:8088';
+
+const UNAUTHORIZED_HINT =
+  '액세스 토큰 검증에 실패했습니다. 로그아웃 후 다시 로그인해 보세요. 원인 확인은 order-service(또는 payment-service) 실행 콘솔의 "JWT 검증 실패" 로그(만료·서명 불일치·iss/aud 불일치 등)를 보세요.';
+
+const CART_OWNER_MISMATCH_HINT =
+  '선택한 장바구니가 지금 로그인한 계정과 맞지 않습니다. 장바구니 화면으로 가서 목록이 새로고침된 뒤 다시 주문하기를 눌러 주세요. (다른 계정으로 로그인했거나, 예전 탭의 주문 화면을 연 경우 자주 발생합니다.)';
+
+/**
+ * GlobalExceptionHandler: { body: { code, message, detail } }
+ * JwtAuthenticationFilter: { code, message } (body 없음)
+ */
+const interpretApiError = (status, err, fallback) => {
+  const inner = err?.body && typeof err.body === 'object' ? err.body : err;
+  const code = inner?.code;
+  const msg = inner?.message;
+
+  if (code === 'NOT_AUTHENTICATED') {
+    return {
+      message:
+        '요청에 유효한 Bearer 토큰이 없거나 인증 단계까지 전달되지 않았습니다. 로그인 상태를 확인하고, 프론트 주소가 order-service CORS에 허용된 출처(localhost:3000 등)와 같은지 확인해 주세요.',
+      errorCode: 'NOT_AUTHENTICATED',
+    };
+  }
+  if (code === 'AUTHORIZATION_001' || msg === 'MISSING_AUTHORIZATION') {
+    return { message: CART_OWNER_MISMATCH_HINT, errorCode: 'AUTHORIZATION_001' };
+  }
+  if (code === 'CART_001' || msg === 'CART_NOT_FOUND') {
+    return {
+      message: '장바구니에서 해당 상품을 찾을 수 없습니다. 장바구니에 다시 담은 후 주문해 주세요.',
+      errorCode: 'CART_001',
+    };
+  }
+  if (code === 'INVALID_TOKEN' || msg === 'Unauthorized') {
+    return { message: UNAUTHORIZED_HINT, errorCode: code || 'INVALID_TOKEN' };
+  }
+  if (code === 'JWT_002' || msg === 'INVALID_JWT_TOKEN') {
+    return { message: UNAUTHORIZED_HINT, errorCode: code };
+  }
+  if (status === 401) {
+    return { message: UNAUTHORIZED_HINT, errorCode: code || 'HTTP_401' };
+  }
+  const detail = inner?.detail;
+  const text =
+    (typeof detail === 'string' && detail) || (typeof msg === 'string' && msg) || '';
+  return { message: text || fallback, errorCode: code };
+};
+
+const messageForApiFailure = (status, err, fallback) =>
+  interpretApiError(status, err, fallback).message;
+
+/**
+ * 액세스 토큰 만료 등으로 401이면 refresh 후 동일 요청을 한 번 더 시도합니다.
+ * @param {(accessToken: string) => Promise<Response>} requestFn
+ * @returns {Promise<Response|null>} 토큰이 전혀 없으면 null
+ */
+const fetchWithRefreshRetry = async (requestFn) => {
+  const first = getAccessToken();
+  if (!first) {
+    return null;
+  }
+  let res = await requestFn(first);
+  if (res.status === 401 && getRefreshToken()) {
+    const rr = await refreshSessionTokens();
+    if (rr.success) {
+      const second = getAccessToken();
+      if (second) {
+        res = await requestFn(second);
+      }
+    }
+  }
+  return res;
+};
+
+/** 배송지 객체 → order-service JSON 문자열 */
+export const deliveryAddressToJsonString = (addr) => {
+  if (!addr) return '{}';
+  return JSON.stringify({
+    postcode: addr.postcode || '',
+    address: addr.address || '',
+    detailAddress: addr.detailAddress || '',
+    recipient: addr.recipient || '',
+    phoneNumber: addr.phoneNumber || addr.phone || '',
+  });
+};
+
+/**
+ * order-service POST /order — 장바구니 라인 ID 목록 필요
+ * @param {object} p
+ * @param {number[]} p.cartIds
+ * @param {string} p.customerName
+ * @param {string} p.customerPhoneNumber
+ * @param {object|string} p.deliveryAddress 객체 또는 이미 JSON 문자열
+ * @param {number|null} [p.couponId] user_coupons.id
+ * @param {number} [p.discountAmount] 쿠폰 할인 금액(원)
+ */
+export const createServerOrder = async (p) => {
+  try {
+    if (!getAccessToken()) {
+      return { success: false, message: UNAUTHORIZED_HINT, status: 401 };
+    }
+    const deliveryJson =
+      typeof p.deliveryAddress === 'string'
+        ? p.deliveryAddress
+        : deliveryAddressToJsonString(p.deliveryAddress);
+
+    const body = {
+      cartIds: p.cartIds,
+      customerName: p.customerName,
+      customerPhoneNumber: p.customerPhoneNumber || '',
+      deliveryAddress: deliveryJson,
+      couponId: p.couponId != null ? p.couponId : null,
+      discountAmount: p.discountAmount != null ? p.discountAmount : 0,
+    };
+
+    const response = await fetchWithRefreshRetry((token) =>
+      fetch(`${ORDER_API_BASE_URL}/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      })
+    );
+
+    if (!response) {
+      return { success: false, message: UNAUTHORIZED_HINT, status: 401 };
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let err = {};
+      try {
+        err = errText ? JSON.parse(errText) : {};
+      } catch {
+        /* plain text 401 등 */
+      }
+      if (response.status === 401) {
+        console.error('[createServerOrder] POST /order 401 본문:', errText || '(비어 있음)');
+      }
+      const { message, errorCode } = interpretApiError(
+        response.status,
+        err,
+        '주문 생성에 실패했습니다.'
+      );
+      return {
+        success: false,
+        message,
+        status: response.status,
+        errorCode,
+      };
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('주문 생성 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+/**
+ * payment-service POST /payment/confirm (Toss 승인 확정)
+ */
+export const confirmServerPayment = async ({ paymentKey, orderId, amount }) => {
+  try {
+    if (!getAccessToken()) {
+      return { success: false, message: UNAUTHORIZED_HINT, status: 401 };
+    }
+    const payload = {
+      paymentKey,
+      orderId,
+      amount: Number(amount),
+    };
+    const response = await fetchWithRefreshRetry((token) =>
+      fetch(`${PAYMENT_API_BASE_URL}/payment/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+    );
+
+    if (!response) {
+      return { success: false, message: UNAUTHORIZED_HINT, status: 401 };
+    }
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: messageForApiFailure(
+          response.status,
+          err,
+          '결제 승인에 실패했습니다.'
+        ),
+        status: response.status,
+      };
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('결제 승인 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+/** GET /order/all → 마이페이지용 주문 목록 */
+export const fetchServerOrders = async () => {
+  try {
+    if (!getAccessToken()) {
+      return { success: false, message: UNAUTHORIZED_HINT, data: [], status: 401 };
+    }
+    const response = await fetchWithRefreshRetry((token) =>
+      fetch(`${ORDER_API_BASE_URL}/order/all`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      })
+    );
+
+    if (!response) {
+      return { success: false, message: UNAUTHORIZED_HINT, data: [], status: 401 };
+    }
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: messageForApiFailure(
+          response.status,
+          err,
+          '주문 목록을 불러오지 못했습니다.'
+        ),
+        data: [],
+        status: response.status,
+      };
+    }
+    const list = await response.json();
+    return { success: true, data: Array.isArray(list) ? list : [] };
+  } catch (error) {
+    console.error('주문 목록 조회 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', data: [], status: 0, originalError: error };
+  }
+};
+
+export const mapServerOrderToMyPageRow = (o) => {
+  const items = o.items || [];
+  const first = items[0];
+  const qtySum = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
+  let delivery = {};
+  try {
+    delivery = o.deliveryAddress ? JSON.parse(o.deliveryAddress) : {};
+  } catch {
+    delivery = {};
+  }
+  const statusMap = {
+    PENDING_PAYMENT: '결제대기',
+    PAYMENT_COMPLETED: '결제완료',
+    PREPARING_SHIPMENT: '배송준비',
+    SHIPPED: '배송중',
+    DELIVERED: '배송완료',
+  };
+  const created = o.createdDate ? new Date(o.createdDate).toISOString() : new Date().toISOString();
+  const est = new Date(new Date(created).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const orderName =
+    items.length > 1
+      ? `${first?.productName || '상품'} 외 ${items.length - 1}건`
+      : first?.productName || '상품';
+
+  return {
+    id: o.id,
+    orderId: o.orderId,
+    orderName,
+    product: first
+      ? {
+          id: first.productId,
+          name: first.productName,
+          price: Number(first.price),
+          image: first.productImage,
+        }
+      : null,
+    quantity: qtySum || Number(first?.quantity) || 1,
+    amount: Number(o.finalAmount),
+    discountAmount: Number(o.discountAmount || 0),
+    coupon: o.couponId ? { id: o.couponId, name: '쿠폰 적용' } : null,
+    deliveryAddress: {
+      postcode: delivery.postcode,
+      address: delivery.address,
+      detailAddress: delivery.detailAddress,
+      recipient: delivery.recipient,
+      phone: delivery.phoneNumber,
+    },
+    status: statusMap[o.status] || o.status,
+    orderDate: created,
+    estimatedDelivery: est,
+    trackingNumber: null,
+    _serverStatus: o.status,
+  };
+};
 
 /** coupon-service UserCouponDetailResponse → 결제/상품 쿠폰 UI용 형식 */
 export const mapUserCouponApiToFrontend = (row) => {
@@ -733,6 +1039,35 @@ export const addToCart = async (productId, quantity = 1) => {
       originalError: error
     };
   }
+};
+
+/**
+ * 결제 직전: 장바구니 라인 ID 확보 (바로구매 시 상품을 장바구니에 넣고 id 수집)
+ */
+export const prepareCartIdsForCheckout = async (orderItems, fromCart, existingCartIds) => {
+  const existing = (existingCartIds || []).filter(Boolean);
+  if (fromCart && existing.length > 0) {
+    return { success: true, cartIds: existing };
+  }
+  const ids = [];
+  for (const item of orderItems) {
+    const pid = item.productId;
+    const qty = item.quantity || 1;
+    if (pid == null) {
+      return { success: false, message: '상품 정보가 올바르지 않습니다.' };
+    }
+    const r = await addToCart(pid, qty);
+    if (!r.success) {
+      return { success: false, message: r.message || '장바구니 추가에 실패했습니다.' };
+    }
+    if (r.data?.id != null) {
+      ids.push(r.data.id);
+    }
+  }
+  if (ids.length === 0) {
+    return { success: false, message: '장바구니 항목을 만들 수 없습니다.' };
+  }
+  return { success: true, cartIds: ids };
 };
 
 // 장바구니 조회

@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
-import { getOrders, getOrderCount, addTestOrder } from '../utils/order';
 import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from '../utils/review';
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
-import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi, fetchUserCoupons, fetchReceivableCoupons, issueCouponById } from '../utils/api';
+import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi, fetchUserCoupons, fetchReceivableCoupons, issueCouponById, fetchServerOrders, mapServerOrderToMyPageRow } from '../utils/api';
 import { getUserIdFromToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { deleteCookie } from '../utils/cookie';
@@ -85,31 +84,29 @@ function MyPage() {
   useEffect(() => {
     if (isLoggedIn()) {
       loadWishlistFromServer();
-      let allOrders = getOrders();
-      
-      // 노트북 스탠드 주문이 없으면 추가 (테스트용)
-      const laptopStandOrder = allOrders.find(order => 
-        order.product && order.product.id === 3 && order.product.name === '노트북 스탠드'
-      );
-      
-      if (!laptopStandOrder) {
-        const laptopStand = allProducts.find(p => p.id === 3 && p.name === '노트북 스탠드');
-        if (laptopStand) {
-          addTestOrder(laptopStand);
-          allOrders = getOrders(); // 다시 가져오기
+
+      const loadServerOrders = async () => {
+        const r = await fetchServerOrders();
+        if (r.success) {
+          const rows = (r.data || []).map(mapServerOrderToMyPageRow);
+          setOrders(rows);
+          setOrderCount(rows.length);
+        } else {
+          setOrders([]);
+          setOrderCount(0);
         }
-      }
-      
-      setOrders(allOrders);
-      setOrderCount(getOrderCount());
+      };
+
+      loadServerOrders();
+
       const username = getCookie('username') || 'test';
       setMyReviews(getReviewsByAuthor(username));
-      
-      // 상품 문의: 로그인 시 API에서 조회
+
       loadMyInquiriesFromServer();
     } else {
-      // 비로그인 시에는 localStorage 기준으로만 찜 목록 표시
       setWishlist(getWishlist());
+      setOrders([]);
+      setOrderCount(0);
     }
   }, [activeMenu]);
 

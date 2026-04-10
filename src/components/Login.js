@@ -376,6 +376,9 @@ function Login() {
           <div className="login-hint">
             <p>테스트 계정: 아이디 - test, 비밀번호 - test</p>
             <p>관리자 계정: 아이디 - admin@admin.com, 비밀번호 - admin</p>
+            <p>
+              주문·결제·서버 장바구니는 auth-service JWT가 필요합니다. 위 스킵 로그인은 쿠키만 설정되므로 해당 기능을 쓰려면 회원가입 후 이메일 로그인을 사용하세요.
+            </p>
           </div>
         </form>
 

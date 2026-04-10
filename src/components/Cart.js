@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
+import { getUserIdFromToken } from '../utils/token';
+import { orderSubtotalFromItems } from '../utils/pricing';
 import {
   getCartItems,
   updateCartQuantity,
@@ -18,6 +20,8 @@ function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  /** 계정(JWT sub)이 바뀌면 장바구니를 다시 불러와 이전 계정의 cartId가 남지 않게 함 */
+  const accountKey = String(getUserIdFromToken() ?? '');
 
   // 장바구니 데이터 로드
   useEffect(() => {
@@ -40,6 +44,7 @@ function Cart() {
             productId: item.productId,
             name: item.productName || '상품명 없음',
             price: item.productPrice ? parseFloat(item.productPrice) : 0,
+            productDiscount: item.productDiscount != null ? item.productDiscount : 0,
             image: item.productImage || 'https://via.placeholder.com/200?text=No+Image',
             quantity: item.quantity || 1,
             checked: item.checked !== undefined ? item.checked : true
@@ -58,7 +63,7 @@ function Cart() {
     };
 
     loadCartItems();
-  }, [navigate]);
+  }, [navigate, accountKey]);
 
   // 체크박스 토글
   const handleCheckToggle = async (cartId, currentChecked) => {
@@ -256,10 +261,7 @@ function Cart() {
 
   // 선택된 상품들의 합계 계산
   const selectedItems = cartItems.filter(item => item.checked);
-  const subtotal = selectedItems.reduce((sum, item) => {
-    const price = item.productPrice ? parseFloat(item.productPrice) : item.price || 0;
-    return sum + (price * item.quantity);
-  }, 0);
+  const subtotal = orderSubtotalFromItems(selectedItems);
   const total = subtotal + SHIPPING_FEE;
   const allChecked = cartItems.length > 0 && cartItems.every(item => item.checked);
 

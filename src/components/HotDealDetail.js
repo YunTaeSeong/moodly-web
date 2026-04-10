@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getHotDealProducts } from '../utils/api';
+import { displayListPriceFromSale } from '../utils/pricing';
 import './HotDealDetail.css';
 
 // 백엔드 미실행 시 사용할 fallback 데이터 (products 테이블에 있는 실제 상품들 - 할인율 높은 순 10개)
@@ -116,7 +117,7 @@ function HotDealDetail() {
           const formattedProducts = result.data.map(product => {
             const price = product.price ? parseFloat(product.price) : 0;
             const discount = product.discount || 0;
-            const originalPrice = discount > 0 ? Math.round(price / (1 - discount / 100)) : price;
+            const originalPrice = displayListPriceFromSale(price, discount);
             
             return {
               id: product.id,

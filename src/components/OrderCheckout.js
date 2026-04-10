@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
-import { getDeliveryAddresses, createDeliveryAddress, fetchUserCoupons } from '../utils/api';
-import { processPayment, generateOrderId } from '../utils/payment';
+import { getAccessToken } from '../utils/token';
+import { getDeliveryAddresses, createDeliveryAddress, fetchUserCoupons, createServerOrder, prepareCartIdsForCheckout } from '../utils/api';
+import { processPayment } from '../utils/payment';
 import { getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { saveDeliveryAddress } from '../utils/delivery';
+import { orderLineTotal, orderSubtotalFromItems } from '../utils/pricing';
 import './OrderCheckout.css';
 
 const SHIPPING_FEE = 3000;
@@ -43,6 +45,13 @@ function OrderCheckout() {
       navigate('/login');
       return;
     }
+    if (!getAccessToken()) {
+      window.alert(
+        '주문·결제는 auth-service 로그인(JWT)이 필요합니다. 테스트 계정(test 등)으로 쿠키만 로그인된 경우 토큰이 없어 주문을 만들 수 없습니다. 로그아웃 후 회원 이메일로 다시 로그인해 주세요.'
+      );
+      navigate('/login', { replace: true });
+      return;
+    }
 
     const state = location.state;
     if (!state) {
@@ -58,6 +67,7 @@ function OrderCheckout() {
         productId: item.productId,
         name: item.name || item.productName,
         price: item.price || item.productPrice || 0,
+        productDiscount: item.productDiscount != null ? item.productDiscount : 0,
         image: item.image || item.productImage,
         quantity: item.quantity || 1,
         cartId: item.cartId || item.id
@@ -70,6 +80,7 @@ function OrderCheckout() {
         productId: p.id,
         name: p.name,
         price: p.price || p.originalPrice,
+        productDiscount: p.discount != null ? p.discount : 0,
         image: p.image,
         quantity: qty,
         cartId: null
@@ -110,7 +121,7 @@ function OrderCheckout() {
   const loadAvailableCoupons = async () => {
     const seq = ++couponLoadSeqRef.current;
     checkCouponExpiry();
-    const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const subtotal = orderSubtotalFromItems(orderItems);
     const localCoupons = getReceivedCoupons();
     const apiRes = await fetchUserCoupons();
     if (seq !== couponLoadSeqRef.current) return;
@@ -248,7 +259,7 @@ function OrderCheckout() {
     }
   };
 
-  const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = orderSubtotalFromItems(orderItems);
   let discountAmount = 0;
   if (selectedCoupon) {
     if (selectedCoupon.discountType === 'fixed') {
@@ -270,39 +281,75 @@ function OrderCheckout() {
       window.alert('배송지를 선택해주세요.');
       return;
     }
+    if (!getAccessToken()) {
+      window.alert('로그인 토큰이 없습니다. 다시 로그인해 주세요.');
+      navigate('/login', { replace: true });
+      return;
+    }
 
     setPaying(true);
-    const orderId = generateOrderId();
     const orderName = orderItems.length > 1
       ? `${orderItems[0].name} 외 ${orderItems.length - 1}종`
       : orderItems[0].name;
 
-    if (selectedCoupon) {
-      const locals = getReceivedCoupons();
-      if (locals.some(c => String(c.id) === String(selectedCoupon.id))) {
-        applyCoupon(selectedCoupon.id);
-      }
-    }
-
-    const paymentData = {
-      amount: total,
-      orderId,
-      orderName,
-      customerName: deliveryAddress.recipient || '고객님',
-      deliveryAddress: deliveryAddress,
-      orderItems,
-      fromCart,
-      cartIds,
-      coupon: selectedCoupon,
-      discountAmount,
-      orderSubtotalBeforeDiscount: subtotal,
-    };
-
     try {
+      const cartPrep = await prepareCartIdsForCheckout(orderItems, fromCart, cartIds);
+      if (!cartPrep.success) {
+        window.alert(cartPrep.message || '장바구니 준비에 실패했습니다.');
+        return;
+      }
+
+      const phone = deliveryAddress.phone || deliveryAddress.phoneNumber || '';
+      const userCouponId =
+        selectedCoupon && selectedCoupon.couponId != null ? selectedCoupon.id : null;
+
+      const orderRes = await createServerOrder({
+        cartIds: cartPrep.cartIds,
+        customerName: deliveryAddress.recipient || '고객님',
+        customerPhoneNumber: phone,
+        deliveryAddress,
+        couponId: userCouponId,
+        discountAmount,
+      });
+
+      if (!orderRes.success) {
+        window.alert(orderRes.message || '주문 생성에 실패했습니다.');
+        if (orderRes.errorCode === 'AUTHORIZATION_001' || orderRes.errorCode === 'CART_001') {
+          navigate('/cart', { replace: true });
+        }
+        return;
+      }
+
+      const srv = orderRes.data;
+      const payAmount = Math.round(Number(srv.finalAmount));
+
+      if (selectedCoupon) {
+        const locals = getReceivedCoupons();
+        if (locals.some(c => String(c.id) === String(selectedCoupon.id))) {
+          applyCoupon(selectedCoupon.id);
+        }
+      }
+
+      const paymentData = {
+        amount: payAmount,
+        orderId: srv.orderId,
+        orderName,
+        customerName: deliveryAddress.recipient || '고객님',
+        deliveryAddress,
+        orderItems,
+        fromCart,
+        cartIds: cartPrep.cartIds,
+        coupon: selectedCoupon,
+        discountAmount,
+        orderSubtotalBeforeDiscount: subtotal,
+        serverOrderId: srv.orderId,
+        serverOrderNumericId: srv.id,
+      };
+
       sessionStorage.setItem('pendingOrder', JSON.stringify(paymentData));
       await processPayment({
         ...paymentData,
-        customerName: deliveryAddress.recipient || '고객님'
+        customerName: deliveryAddress.recipient || '고객님',
       });
     } catch (error) {
       window.alert(`결제 처리 중 오류가 발생했습니다: ${error.message}`);
@@ -359,7 +406,7 @@ function OrderCheckout() {
                   <span className="order-checkout-item-name">{item.name}</span>
                   <span className="order-checkout-item-option">수량: {item.quantity}개</span>
                   <span className="order-checkout-item-price">
-                    {(item.price * item.quantity).toLocaleString()}원
+                    {orderLineTotal(item).toLocaleString()}원
                   </span>
                 </div>
               </div>
