@@ -20,8 +20,22 @@ function PaymentSuccess() {
       return;
     }
 
-    let cancelled = false;
+    if (!paymentKey || !orderId) {
+      return;
+    }
+
+    const confirmLockKey = `moodly_payment_confirm:${paymentKey}:${orderId}`;
+    if (sessionStorage.getItem(confirmLockKey) === 'done') {
+      sessionStorage.removeItem('pendingOrder');
+      return;
+    }
+    if (sessionStorage.getItem(confirmLockKey) === 'pending') {
+      return;
+    }
+    sessionStorage.setItem(confirmLockKey, 'pending');
+
     (async () => {
+      let confirmSucceeded = false;
       try {
         const orderData = JSON.parse(pendingOrderData);
         const finalOrderId = orderId || orderData.orderId;
@@ -49,7 +63,6 @@ function PaymentSuccess() {
             ? parseInt(amount, 10)
             : Math.round(Number(orderData.amount));
 
-        let confirmSucceeded = false;
         if (paymentKey && finalOrderId && !Number.isNaN(amt)) {
           const cr = await confirmServerPayment({
             paymentKey,
@@ -62,6 +75,8 @@ function PaymentSuccess() {
               cr.message ||
                 '결제 승인 확인에 실패했습니다. 결제는 되었을 수 있으니 고객센터로 문의해 주세요.'
             );
+          } else {
+            sessionStorage.setItem(confirmLockKey, 'done');
           }
         } else {
           console.warn('[PaymentSuccess] Toss 파라미터 부족 — 승인 확인 생략', {
@@ -70,8 +85,6 @@ function PaymentSuccess() {
             amt,
           });
         }
-
-        if (cancelled) return;
 
         const c = orderData.coupon;
         if (
@@ -87,20 +100,22 @@ function PaymentSuccess() {
           }
         }
 
-        sessionStorage.removeItem('pendingOrder');
-        console.log('주문이 저장되었습니다:', {
-          paymentKey,
-          orderId: finalOrderId,
-          amount,
-        });
+        if (confirmSucceeded) {
+          sessionStorage.removeItem('pendingOrder');
+          console.log('주문이 저장되었습니다:', {
+            paymentKey,
+            orderId: finalOrderId,
+            amount,
+          });
+        }
       } catch (error) {
         console.error('주문 저장 중 오류:', error);
+      } finally {
+        if (sessionStorage.getItem(confirmLockKey) !== 'done') {
+          sessionStorage.removeItem(confirmLockKey);
+        }
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [searchParams]);
 
   return (
@@ -136,4 +151,3 @@ function PaymentSuccess() {
 }
 
 export default PaymentSuccess;
-
