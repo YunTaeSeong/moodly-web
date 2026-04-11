@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { isWishlisted, addToWishlist, removeFromWishlist } from '../utils/wishlist';
 import { getDeliveryAddress, saveDeliveryAddress, hasDeliveryAddress } from '../utils/delivery';
@@ -7,12 +7,12 @@ import { processPayment } from '../utils/payment';
 import { getInquiries, addInquiry } from '../utils/inquiry';
 import { receiveProductCoupon, getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { allProducts } from '../utils/products';
-import { getReviewsByProductId } from '../utils/review';
+import { getReviewsByProductId, saveReview, findEligiblePurchaseForReview, hasReviewForUserProduct } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
 import { getUserIdFromToken, getAccessToken } from '../utils/token';
-import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons, createServerOrder, prepareCartIdsForCheckout } from '../utils/api';
+import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons, createServerOrder, prepareCartIdsForCheckout, fetchServerOrders } from '../utils/api';
 import { orderLineTotal, displayListPriceFromSale } from '../utils/pricing';
 import './ProductDetail.css';
 
@@ -504,6 +504,124 @@ function ProductDetail() {
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewSortOrder, setReviewSortOrder] = useState('latest'); // 'latest' or 'rating'
+  const [serverOrdersRaw, setServerOrdersRaw] = useState([]);
+  const [reviewListVersion, setReviewListVersion] = useState(0);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewWriteContext, setReviewWriteContext] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewContent, setReviewContent] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  // 로그인 시 서버 주문(구매 후기 작성 자격 판별용)
+  useEffect(() => {
+    let cancelled = false;
+    if (!isLoggedIn() || !getAccessToken() || !productId) {
+      setServerOrdersRaw([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+    (async () => {
+      const r = await fetchServerOrders();
+      if (!cancelled) {
+        if (r.success) setServerOrdersRaw(r.data || []);
+        else setServerOrdersRaw([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, activeTab]);
+
+  const eligibleReviewPurchase = useMemo(() => {
+    if (!isLoggedIn() || !getAccessToken() || !product) return null;
+    const uid = getUserIdFromToken();
+    const author = getCookie('username') || '';
+    const idForRev = resolveInquiryProductId();
+    if (idForRev == null) return null;
+    return findEligiblePurchaseForReview(serverOrdersRaw, idForRev, uid, author);
+  }, [serverOrdersRaw, product, productId, reviewListVersion]);
+
+  /** 상단 요약: 로컬 구매후기 기준 평균 별점·후기 건수(구매 후기 수) */
+  const headerReviewStats = useMemo(() => {
+    const id = product?.id;
+    if (id == null) return { count: 0, average: 0 };
+    const list = getReviewsByProductId(id);
+    const count = list.length;
+    if (count === 0) return { count: 0, average: 0 };
+    const sum = list.reduce((s, r) => s + Number(r.rating || 0), 0);
+    return { count, average: sum / count };
+  }, [product?.id, reviewListVersion]);
+
+  const handleOpenReviewModal = () => {
+    if (!eligibleReviewPurchase) {
+      window.alert('이 상품에 대해 작성 가능한 구매 후기가 없습니다. 결제가 완료된 주문에 포함된 상품만 작성할 수 있습니다.');
+      return;
+    }
+    setReviewWriteContext(eligibleReviewPurchase);
+    setReviewRating(5);
+    setReviewContent('');
+    setShowReviewModal(true);
+  };
+
+  const handleCloseReviewModal = () => {
+    if (reviewSubmitting) return;
+    setShowReviewModal(false);
+    setReviewWriteContext(null);
+    setReviewRating(5);
+    setReviewContent('');
+  };
+
+  const handleSubmitProductReview = () => {
+    if (!reviewContent.trim()) {
+      window.alert('구매후기 내용을 입력해주세요.');
+      return;
+    }
+    if (!reviewWriteContext?.line || !reviewWriteContext?.rawOrder) {
+      window.alert('주문 정보를 찾을 수 없습니다.');
+      return;
+    }
+    const uid = getUserIdFromToken();
+    if (uid == null) {
+      window.alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+    const username = getCookie('username') || '회원';
+    const { rawOrder, line } = reviewWriteContext;
+    const pid = Number(line.productId);
+    if (hasReviewForUserProduct(uid, pid, username)) {
+      window.alert('이미 이 상품에 대한 구매후기를 작성하셨습니다.');
+      return;
+    }
+    setReviewSubmitting(true);
+    try {
+      const saved = saveReview({
+        orderId: rawOrder.orderId,
+        productId: pid,
+        productName: line.productName || product?.name || '상품',
+        productImage: line.productImage || product?.image || '',
+        rating: reviewRating,
+        content: reviewContent.trim(),
+        author: username,
+        userId: uid,
+        immutable: true,
+        images: [],
+      });
+      if (saved) {
+        window.alert('구매후기가 등록되었습니다.');
+        setReviewListVersion((v) => v + 1);
+        setShowReviewModal(false);
+        setReviewWriteContext(null);
+        setReviewRating(5);
+        setReviewContent('');
+      } else {
+        window.alert('구매후기 등록에 실패했습니다.');
+      }
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   // 상품 데이터 로드
   useEffect(() => {
@@ -815,7 +933,7 @@ function ProductDetail() {
       
       setReviews(productReviews);
     }
-  }, [product, activeTab, reviewSortOrder]);
+  }, [product, activeTab, reviewSortOrder, reviewListVersion]);
 
   // 로딩 중
   if (loading) {
@@ -1520,10 +1638,22 @@ function ProductDetail() {
       case 'review':
         return (
           <div className="tab-content-review">
+            <div className="inquiry-header review-section-header">
+              <h3>구매후기</h3>
+              {eligibleReviewPurchase ? (
+                <button type="button" className="inquiry-write-btn" onClick={handleOpenReviewModal}>
+                  구매후기 작성
+                </button>
+              ) : null}
+            </div>
             {reviews.length === 0 ? (
               <div className="review-empty">
                 <p>아직 등록된 구매후기가 없습니다.</p>
-                <p className="review-empty-sub">첫 번째 후기를 작성해보세요!</p>
+                <p className="review-empty-sub">
+                  {eligibleReviewPurchase
+                    ? '구매하신 상품의 후기를 남겨보세요.'
+                    : '해당 상품을 결제 완료한 회원만 후기를 작성할 수 있습니다.'}
+                </p>
               </div>
             ) : (
               <>
@@ -1546,51 +1676,63 @@ function ProductDetail() {
                   </div>
                 </div>
                 <div className="review-list">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="review-item">
-                      <div className="review-header-section">
-                        <div className="review-author-row">
-                          <span className="review-author">{review.author}</span>
-                          <div className="review-rating">
-                            {[...Array(5)].map((_, i) => (
-                              <svg
-                                key={i}
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill={i < review.rating ? "#ff9800" : "#e0e0e0"}
-                                className="review-star"
-                              >
-                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                              </svg>
-                            ))}
+                  {reviews.map((review) => {
+                    const thumbSrc = review.productImage || product?.image || '';
+                    return (
+                      <div key={review.id} className="review-item">
+                        <div className="review-item-layout">
+                          <div className="review-item-thumb">
+                            {thumbSrc ? (
+                              <img src={thumbSrc} alt={review.productName || product?.name || ''} />
+                            ) : (
+                              <div className="review-item-thumb-placeholder" aria-hidden />
+                            )}
                           </div>
-                          <span className="review-date">
-                            {new Date(review.createdAt).toLocaleDateString('ko-KR', {
-                              year: 'numeric',
-                              month: 'numeric',
-                              day: 'numeric'
-                            }).replace(/\./g, '.').replace(/\s/g, '')}
-                          </span>
-                        </div>
-                        <div className="review-product-title">{review.productName}</div>
-                        {review.images && review.images.length > 0 && (
-                          <div className="review-images">
-                            {review.images.map((image, index) => (
-                              <img
-                                key={index}
-                                src={image}
-                                alt={`리뷰 이미지 ${index + 1}`}
-                                className="review-image"
-                              />
-                            ))}
+                          <div className="review-header-section">
+                            <div className="review-author-row">
+                              <span className="review-author">{review.author}</span>
+                              <div className="review-rating">
+                                {[...Array(5)].map((_, i) => (
+                                  <svg
+                                    key={i}
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill={i < review.rating ? "#ff9800" : "#e0e0e0"}
+                                    className="review-star"
+                                  >
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                  </svg>
+                                ))}
+                              </div>
+                              <span className="review-date">
+                                {new Date(review.createdAt).toLocaleDateString('ko-KR', {
+                                  year: 'numeric',
+                                  month: 'numeric',
+                                  day: 'numeric'
+                                }).replace(/\./g, '.').replace(/\s/g, '')}
+                              </span>
+                            </div>
+                            <div className="review-product-title">{review.productName}</div>
+                            {review.images && review.images.length > 0 && (
+                              <div className="review-images">
+                                {review.images.map((image, index) => (
+                                  <img
+                                    key={index}
+                                    src={image}
+                                    alt={`리뷰 이미지 ${index + 1}`}
+                                    className="review-image"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            <div className="review-content">
+                              <p>{review.content}</p>
+                            </div>
                           </div>
-                        )}
-                        <div className="review-content">
-                          <p>{review.content}</p>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -1798,16 +1940,25 @@ function ProductDetail() {
 
           {/* 별점 및 구매 정보 */}
           <div className="product-rating-info" onClick={handleRatingClick} style={{ cursor: 'pointer' }}>
-            <div className="rating-stars">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <span key={star} className={`star ${star <= Math.round(product.rating || 4.5) ? 'filled' : ''}`}>
-                  ★
-                </span>
-              ))}
+            <div
+              className={`rating-stars rating-stars-average${headerReviewStats.count > 0 ? ' rating-stars-average--active' : ''}`}
+              aria-label={`평균 ${headerReviewStats.average.toFixed(1)}점`}
+            >
+              {[1, 2, 3, 4, 5].map((starIndex) => {
+                const fill = Math.min(1, Math.max(0, headerReviewStats.average - (starIndex - 1)));
+                return (
+                  <span key={starIndex} className="star-partial-wrap" aria-hidden>
+                    <span className="star-partial-base">★</span>
+                    <span className="star-partial-fill" style={{ width: `${fill * 100}%` }}>
+                      ★
+                    </span>
+                  </span>
+                );
+              })}
             </div>
-            <span className="rating-text">({product.reviewCount || 0})</span>
+            <span className="rating-text">({headerReviewStats.average.toFixed(1)})</span>
             <span className="rating-separator">|</span>
-            <span className="purchase-count">구매 {product.purchaseCount || 0}</span>
+            <span className="purchase-count">구매 {headerReviewStats.count}</span>
           </div>
 
           {/* 가격 정보 — 핫딜/특가와 동일: 취소선은 역산 정가, 굵은 글씨는 DB 판매가 */}
@@ -2106,6 +2257,86 @@ function ProductDetail() {
               </button>
               <button type="button" className="inquiry-modal-btn submit" disabled={inquirySubmitting} onClick={handleSubmitInquiry}>
                 {inquirySubmitting ? '등록 중…' : '확인'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 구매후기 작성 모달 */}
+      {showReviewModal && reviewWriteContext?.line && product && (
+        <div
+          className="inquiry-modal-overlay"
+          onClick={() => {
+            if (!reviewSubmitting) handleCloseReviewModal();
+          }}
+        >
+          <div className="inquiry-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="inquiry-modal-header">
+              <h3>구매후기 작성</h3>
+              <button type="button" className="inquiry-modal-close" disabled={reviewSubmitting} onClick={handleCloseReviewModal}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="inquiry-modal-body">
+              <div className="inquiry-form-group">
+                <label>구매하신 상품</label>
+                <div className="inquiry-product-info">
+                  <div className="inquiry-product-image">
+                    <img
+                      src={reviewWriteContext.line.productImage || product.image}
+                      alt={reviewWriteContext.line.productName || product.name}
+                    />
+                  </div>
+                  <div className="inquiry-product-details">
+                    <div className="inquiry-product-name">{reviewWriteContext.line.productName || product.name}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="inquiry-form-group">
+                <label>별점</label>
+                <div className="review-write-stars">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className="review-write-star-btn"
+                      aria-label={`${n}점`}
+                      onClick={() => setReviewRating(n)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="review-write-star-svg">
+                        <path
+                          d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                          fill={reviewRating >= n ? '#e74c3c' : '#e8eaed'}
+                        />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+                <p className="review-write-rating-text">{reviewRating}점</p>
+              </div>
+              <div className="inquiry-form-group">
+                <label htmlFor="product-review-content">구매후기</label>
+                <textarea
+                  id="product-review-content"
+                  className="inquiry-content-textarea"
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  placeholder="상품은 어떠셨나요? 다른 고객에게 도움이 되도록 솔직한 후기를 남겨주세요."
+                  rows={8}
+                  disabled={reviewSubmitting}
+                />
+              </div>
+            </div>
+            <div className="inquiry-modal-footer">
+              <button type="button" className="inquiry-modal-btn cancel" disabled={reviewSubmitting} onClick={handleCloseReviewModal}>
+                취소
+              </button>
+              <button type="button" className="inquiry-modal-btn submit" disabled={reviewSubmitting} onClick={handleSubmitProductReview}>
+                {reviewSubmitting ? '등록 중…' : '등록'}
               </button>
             </div>
           </div>

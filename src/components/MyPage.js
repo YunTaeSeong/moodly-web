@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
-import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from '../utils/review';
+import { getReviewsByAuthor, hasReviewForOrder, hasReviewForUserProduct, saveReview, deleteReview, PAID_ORDER_STATUSES_FOR_REVIEW } from '../utils/review';
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
@@ -343,13 +343,16 @@ function MyPage() {
     }
   };
 
-  // 작성 가능한 리뷰 목록 가져오기 (배송 완료 후 30일 이내, 아직 리뷰 미작성)
+  // 작성 가능한 리뷰 목록 가져오기 (결제 완료 주문, 배송 완료 후 30일 이내, 동일 상품 후기 미작성)
   const getAvailableReviews = () => {
     const username = getCookie('username') || 'test';
+    const userId = getUserIdFromToken();
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
     return orders.filter(order => {
+      if (!PAID_ORDER_STATUSES_FOR_REVIEW.includes(order._serverStatus)) return false;
+
       // 배송 완료일 기준으로 30일 이내인지 확인
       // deliveredDate가 있으면 그것을 사용, 없으면 estimatedDelivery 또는 orderDate 사용
       let deliveryDate;
@@ -374,8 +377,10 @@ function MyPage() {
       
       // 배송 완료 후 30일 이내
       const isWithin30Days = deliveryDate >= thirtyDaysAgo;
-      // 아직 리뷰를 작성하지 않음
-      const hasNoReview = !hasReviewForOrder(order.orderId || order.id);
+      // 해당 주문·상품에 대한 후기 없음 (동일 상품 중복 후기도 불가)
+      const hasNoReview =
+        !hasReviewForOrder(order.orderId || order.id) &&
+        !hasReviewForUserProduct(userId, order.product?.id, username);
       // 상품 정보가 있음
       return isWithin30Days && hasNoReview && order.product;
     });
@@ -440,6 +445,16 @@ function MyPage() {
     }
 
     const username = getCookie('username') || 'test';
+    const uid = getUserIdFromToken();
+    if (uid == null) {
+      window.alert('로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+      return;
+    }
+    if (hasReviewForUserProduct(uid, selectedOrder.product.id, username)) {
+      window.alert('이미 이 상품에 대한 구매후기를 작성하셨습니다.');
+      return;
+    }
+
     const reviewData = {
       orderId: selectedOrder.orderId || selectedOrder.id,
       productId: selectedOrder.product.id,
@@ -448,6 +463,8 @@ function MyPage() {
       rating: reviewRating,
       content: reviewContent,
       author: username,
+      userId: uid,
+      immutable: true,
       images: reviewImages
     };
 
@@ -461,7 +478,7 @@ function MyPage() {
     }
   };
 
-  // 리뷰 삭제
+  // 리뷰 삭제 (등록 확정된 후기는 삭제 불가)
   const handleDeleteReview = (reviewId) => {
     if (window.confirm('리뷰를 삭제하시겠습니까?')) {
       if (deleteReview(reviewId)) {
@@ -469,7 +486,7 @@ function MyPage() {
         const username = getCookie('username') || 'test';
         setMyReviews(getReviewsByAuthor(username));
       } else {
-        window.alert('리뷰 삭제에 실패했습니다.');
+        window.alert('삭제할 수 없는 리뷰입니다. 등록된 구매 후기는 수정·삭제가 제한됩니다.');
       }
     }
   };
@@ -1123,12 +1140,14 @@ function MyPage() {
                           </p>
                         </div>
                       </div>
-                      <button 
-                        className="review-delete-btn"
-                        onClick={() => handleDeleteReview(review.id)}
-                      >
-                        삭제
-                      </button>
+                      {!review.immutable && (
+                        <button 
+                          className="review-delete-btn"
+                          onClick={() => handleDeleteReview(review.id)}
+                        >
+                          삭제
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

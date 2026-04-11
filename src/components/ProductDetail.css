@@ -161,6 +161,39 @@
   gap: 2px;
 }
 
+.rating-stars-average .star-partial-wrap {
+  position: relative;
+  display: inline-block;
+  width: 1.15em;
+  height: 1em;
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rating-stars-average .star-partial-base {
+  display: block;
+  color: #e2e5e9;
+  line-height: 1;
+}
+
+.rating-stars-average .star-partial-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  overflow: hidden;
+  color: #9ca3af;
+  line-height: 1;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+/* 구매후기가 1건 이상일 때만 채워진 별을 빨간색으로 */
+.rating-stars-average.rating-stars-average--active .star-partial-fill {
+  color: #e74c3c;
+}
+
 .star {
   color: #e2e5e9;
   font-size: 1.2rem;
@@ -574,6 +607,43 @@
 }
 
 /* 구매후기 탭 */
+.review-section-header {
+  margin-bottom: 1rem;
+}
+
+.review-write-stars {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.review-write-star-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.review-write-star-btn:focus-visible {
+  outline: 2px solid #94a3b8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.review-write-star-svg {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+.review-write-rating-text {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
 .tab-content-review {
   padding: 2rem;
 }
@@ -648,6 +718,41 @@
 
 .review-item:last-child {
   border-bottom: none;
+}
+
+.review-item-layout {
+  display: flex;
+  flex-direction: row;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.review-item-thumb {
+  flex-shrink: 0;
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f3f5;
+  border: 1px solid #e9ecef;
+}
+
+.review-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.review-item-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+}
+
+.review-item-layout .review-header-section {
+  flex: 1;
+  min-width: 0;
 }
 
 .review-header-section {

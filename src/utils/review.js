@@ -2,6 +2,52 @@
 
 const REVIEW_KEY = 'moodly_reviews';
 
+/** 서버 주문 상태: 결제 완료 이후만 후기 작성 허용용 */
+export const PAID_ORDER_STATUSES_FOR_REVIEW = [
+  'PAYMENT_COMPLETED',
+  'PREPARING_SHIPMENT',
+  'SHIPPED',
+  'DELIVERED',
+];
+
+export const isPaidServerOrderRaw = (rawOrder) =>
+  PAID_ORDER_STATUSES_FOR_REVIEW.includes(rawOrder?.status);
+
+export const findOrderLineForProduct = (rawOrder, productId) => {
+  const pid = Number(productId);
+  if (Number.isNaN(pid)) return null;
+  return (rawOrder?.items || []).find((it) => Number(it.productId) === pid) || null;
+};
+
+/**
+ * 동일 회원·동일 상품 후기 중복 여부 (userId 우선, 구버전 리뷰는 author만 있는 경우 authorFallback)
+ */
+export const hasReviewForUserProduct = (userId, productId, authorFallback = null) => {
+  const pid = Number(productId);
+  if (Number.isNaN(pid)) return false;
+  const uid = userId != null && userId !== '' ? Number(userId) : null;
+  return getReviews().some((r) => {
+    if (Number(r.productId) !== pid) return false;
+    if (uid != null && !Number.isNaN(uid) && r.userId != null && Number(r.userId) === uid) return true;
+    if (authorFallback && (r.userId == null || r.userId === '') && r.author === authorFallback) return true;
+    return false;
+  });
+};
+
+/** 결제 완료 주문 중 해당 상품이 포함되고, 아직 후기가 없으면 { rawOrder, line } */
+export const findEligiblePurchaseForReview = (rawOrders, productId, userId, authorFallback = null) => {
+  if (!Array.isArray(rawOrders) || !rawOrders.length || productId == null) return null;
+  const uid = userId != null && userId !== '' ? Number(userId) : null;
+  if (uid == null || Number.isNaN(uid)) return null;
+  if (hasReviewForUserProduct(uid, productId, authorFallback)) return null;
+  for (const o of rawOrders) {
+    if (!isPaidServerOrderRaw(o)) continue;
+    const line = findOrderLineForProduct(o, productId);
+    if (line) return { rawOrder: o, line };
+  }
+  return null;
+};
+
 // 리뷰 저장
 export const saveReview = (reviewData) => {
   try {
@@ -15,6 +61,8 @@ export const saveReview = (reviewData) => {
       rating: reviewData.rating,
       content: reviewData.content,
       author: reviewData.author,
+      userId: reviewData.userId != null ? reviewData.userId : null,
+      immutable: reviewData.immutable === true,
       createdAt: new Date().toISOString(),
       images: reviewData.images || []
     };
@@ -45,8 +93,9 @@ export const getReviews = () => {
 // 특정 상품의 리뷰 가져오기
 export const getReviewsByProductId = (productId) => {
   try {
+    const pid = Number(productId);
     const reviews = getReviews();
-    return reviews.filter(review => review.productId === productId);
+    return reviews.filter((review) => Number(review.productId) === pid);
   } catch (error) {
     console.error('상품 리뷰를 가져오는 중 오류 발생:', error);
     return [];
@@ -80,7 +129,9 @@ export const updateReview = (reviewId, updatedData) => {
   try {
     const reviews = getReviews();
     const reviewIndex = reviews.findIndex(review => review.id === reviewId);
-    
+    if (reviewIndex > -1 && reviews[reviewIndex].immutable) {
+      return null;
+    }
     if (reviewIndex > -1) {
       reviews[reviewIndex] = {
         ...reviews[reviewIndex],
@@ -101,6 +152,8 @@ export const updateReview = (reviewId, updatedData) => {
 export const deleteReview = (reviewId) => {
   try {
     const reviews = getReviews();
+    const target = reviews.find((r) => r.id === reviewId);
+    if (target?.immutable) return false;
     const filteredReviews = reviews.filter(review => review.id !== reviewId);
     localStorage.setItem(REVIEW_KEY, JSON.stringify(filteredReviews));
     return true;
