@@ -162,12 +162,12 @@
 }
 
 .star {
-  color: #ddd;
+  color: #e2e5e9;
   font-size: 1.2rem;
 }
 
 .star.filled {
-  color: #e74c3c;
+  color: #9ca3af;
 }
 
 .rating-text {
