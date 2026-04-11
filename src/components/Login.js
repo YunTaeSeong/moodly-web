@@ -327,78 +327,67 @@ function Login() {
       <div className="login-box">
         <h1 className="login-title">로그인</h1>
         <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username">아이디</label>
-            <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="아이디를 입력하세요"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">비밀번호</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호를 입력하세요"
-              required
-            />
+          <div className="login-credentials">
+            <div className="form-group">
+              <label htmlFor="username">아이디</label>
+              <input
+                type="text"
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="아이디를 입력하세요"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="password">비밀번호</label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호를 입력하세요"
+                required
+              />
+            </div>
           </div>
           {error && <div className="error-message">{error}</div>}
           <button type="submit" className="login-submit-button">
             로그인
           </button>
-          
-          {/* ID/PW 찾기 링크 */}
+
+          <div className="social-login-section">
+            <button
+              type="button"
+              className="kakao-login-button"
+              onClick={handleKakaoLogin}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
+                <path d="M10 0C4.477 0 0 3.582 0 8c0 2.797 1.797 5.27 4.5 6.75L3.5 20l5.5-3.1c.5.05 1 .1 1.5.1 5.523 0 10-3.582 10-8S15.523 0 10 0z" fill="#FEE500"/>
+                <path d="M10 2c3.866 0 7 2.462 7 5.5S13.866 13 10 13c-.5 0-1-.05-1.5-.15L5 15.5l1-2.25C3.5 11.8 3 9.95 3 7.5 3 4.462 6.134 2 10 2z" fill="#000"/>
+              </svg>
+              카카오 로그인
+            </button>
+          </div>
+
           <div className="login-find-links">
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="find-link"
               onClick={() => handleOpenFindModal('id')}
             >
               ID 찾기
             </button>
             <span className="find-link-divider">|</span>
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="find-link"
               onClick={() => handleOpenFindModal('password')}
             >
               PW 찾기
             </button>
           </div>
-
-          <div className="login-hint">
-            <p>테스트 계정: 아이디 - test, 비밀번호 - test</p>
-            <p>관리자 계정: 아이디 - admin@admin.com, 비밀번호 - admin</p>
-            <p>
-              주문·결제·서버 장바구니는 auth-service JWT가 필요합니다. 위 스킵 로그인은 쿠키만 설정되므로 해당 기능을 쓰려면 회원가입 후 이메일 로그인을 사용하세요.
-            </p>
-          </div>
         </form>
-
-        {/* 카카오 로그인 버튼 */}
-        <div className="social-login-section">
-          <div className="social-login-divider">
-            <span>또는</span>
-          </div>
-          <button 
-            type="button" 
-            className="kakao-login-button"
-            onClick={handleKakaoLogin}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
-              <path d="M10 0C4.477 0 0 3.582 0 8c0 2.797 1.797 5.27 4.5 6.75L3.5 20l5.5-3.1c.5.05 1 .1 1.5.1 5.523 0 10-3.582 10-8S15.523 0 10 0z" fill="#FEE500"/>
-              <path d="M10 2c3.866 0 7 2.462 7 5.5S13.866 13 10 13c-.5 0-1-.05-1.5-.15L5 15.5l1-2.25C3.5 11.8 3 9.95 3 7.5 3 4.462 6.134 2 10 2z" fill="#000"/>
-            </svg>
-            카카오 로그인
-          </button>
-        </div>
       </div>
 
       {/* ID/PW 찾기 모달 */}

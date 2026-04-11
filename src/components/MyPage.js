@@ -6,7 +6,7 @@ import { getReviewsByAuthor, hasReviewForOrder, saveReview, deleteReview } from 
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
-import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi, fetchUserCoupons, fetchReceivableCoupons, issueCouponById, fetchServerOrders, mapServerOrderToMyPageRow } from '../utils/api';
+import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi, fetchUserCoupons, fetchReceivableCoupons, issueCouponById, fetchServerOrders, mapServerOrderToMyPageRow, cancelServerPayment } from '../utils/api';
 import { getUserIdFromToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { deleteCookie } from '../utils/cookie';
@@ -40,6 +40,7 @@ function MyPage() {
   const [issuingCouponId, setIssuingCouponId] = useState(null);
   const [orders, setOrders] = useState([]);
   const [orderCount, setOrderCount] = useState(0);
+  const [cancellingOrderKey, setCancellingOrderKey] = useState(null);
   const [inquiryCount, setInquiryCount] = useState(0);
   const [myReviews, setMyReviews] = useState([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -80,24 +81,51 @@ function MyPage() {
     setDeliveryAddressFormRef.current = setDeliveryAddressForm;
   }, []);
 
+  const refreshServerOrders = async () => {
+    const r = await fetchServerOrders();
+    if (r.success) {
+      const rows = (r.data || []).map(mapServerOrderToMyPageRow);
+      setOrders(rows);
+      setOrderCount(rows.length);
+    } else {
+      setOrders([]);
+      setOrderCount(0);
+    }
+  };
+
+  const handleCancelPayment = async (order) => {
+    if (!order?.orderId) return;
+    if (!window.confirm('결제를 취소하시겠습니까? 카드 환불은 카드사·결제사 정책에 따라 영업일 기준으로 처리될 수 있습니다.')) {
+      return;
+    }
+    setCancellingOrderKey(order.orderId);
+    try {
+      const res = await cancelServerPayment({ orderId: order.orderId });
+      if (res.success) {
+        window.alert('결제가 취소되었습니다.');
+        await refreshServerOrders();
+      } else {
+        window.alert(res.message || '결제 취소에 실패했습니다.');
+      }
+    } finally {
+      setCancellingOrderKey(null);
+    }
+  };
+
+  const orderStatusBadgeClass = (label) => {
+    if (label === '결제완료') return 'paid';
+    if (label === '결제취소') return 'cancelled';
+    if (label === '배송중') return 'shipping';
+    if (label === '배송완료') return 'delivered';
+    return '';
+  };
+
   // 찜한 상품 목록 및 주문 내역 가져오기
   useEffect(() => {
     if (isLoggedIn()) {
       loadWishlistFromServer();
 
-      const loadServerOrders = async () => {
-        const r = await fetchServerOrders();
-        if (r.success) {
-          const rows = (r.data || []).map(mapServerOrderToMyPageRow);
-          setOrders(rows);
-          setOrderCount(rows.length);
-        } else {
-          setOrders([]);
-          setOrderCount(0);
-        }
-      };
-
-      loadServerOrders();
+      refreshServerOrders();
 
       const username = getCookie('username') || 'test';
       setMyReviews(getReviewsByAuthor(username));
@@ -867,7 +895,7 @@ function MyPage() {
                         </span>
                         <span className="order-id">주문번호: {order.orderId}</span>
                       </div>
-                      <span className={`order-status ${order.status === '결제완료' ? 'paid' : order.status === '배송중' ? 'shipping' : 'delivered'}`}>
+                      <span className={`order-status ${orderStatusBadgeClass(order.status)}`}>
                         {order.status}
                       </span>
                     </div>
@@ -918,6 +946,18 @@ function MyPage() {
                     {order.estimatedDelivery && (
                       <div className="order-estimated-delivery">
                         예상 배송일: {new Date(order.estimatedDelivery).toLocaleDateString('ko-KR')}
+                      </div>
+                    )}
+                    {order._serverStatus === 'PAYMENT_COMPLETED' && (
+                      <div className="order-actions">
+                        <button
+                          type="button"
+                          className="order-cancel-payment-btn"
+                          disabled={cancellingOrderKey === order.orderId}
+                          onClick={() => handleCancelPayment(order)}
+                        >
+                          {cancellingOrderKey === order.orderId ? '처리 중…' : '결제취소'}
+                        </button>
                       </div>
                     )}
                   </div>

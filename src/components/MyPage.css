@@ -819,6 +819,37 @@
   color: #0f5132;
 }
 
+.order-status.cancelled {
+  background-color: #f8d7da;
+  color: #842029;
+}
+
+.order-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.order-cancel-payment-btn {
+  padding: 0.55rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #842029;
+  background: #fff;
+  border: 1px solid #842029;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.order-cancel-payment-btn:hover:not(:disabled) {
+  background: #f8d7da;
+}
+
+.order-cancel-payment-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .order-content {
   display: flex;
   gap: 2rem;

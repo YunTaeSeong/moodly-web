@@ -217,6 +217,51 @@ export const confirmServerPayment = async ({ paymentKey, orderId, amount }) => {
   }
 };
 
+/** payment-service POST /payment/cancel (Toss 전액 취소 + 주문 결제취소) */
+export const cancelServerPayment = async ({ orderId, cancelReason }) => {
+  try {
+    if (!getAccessToken()) {
+      return { success: false, message: UNAUTHORIZED_HINT, status: 401 };
+    }
+    const payload = {
+      orderId,
+      ...(cancelReason ? { cancelReason } : {}),
+    };
+    const response = await fetchWithRefreshRetry((token) =>
+      fetch(`${PAYMENT_API_BASE_URL}/payment/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+    );
+
+    if (!response) {
+      return { success: false, message: UNAUTHORIZED_HINT, status: 401 };
+    }
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: messageForApiFailure(
+          response.status,
+          err,
+          '결제 취소에 실패했습니다.'
+        ),
+        status: response.status,
+      };
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('결제 취소 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
 /** GET /order/all → 마이페이지용 주문 목록 */
 export const fetchServerOrders = async () => {
   try {
@@ -271,6 +316,7 @@ export const mapServerOrderToMyPageRow = (o) => {
   const statusMap = {
     PENDING_PAYMENT: '결제대기',
     PAYMENT_COMPLETED: '결제완료',
+    PAYMENT_CANCELLED: '결제취소',
     PREPARING_SHIPMENT: '배송준비',
     SHIPPED: '배송중',
     DELIVERED: '배송완료',

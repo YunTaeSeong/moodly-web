@@ -30,6 +30,13 @@
   gap: 1.5rem;
 }
 
+/* 아이디·비밀번호만 폼 전체 gap보다 좁게 */
+.login-credentials {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -87,26 +94,13 @@
   transform: translateY(0);
 }
 
-.login-hint {
-  text-align: center;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
-}
-
-.login-hint p {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #7f8c8d;
-}
-
 /* ID/PW 찾기 링크 */
 .login-find-links {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 1rem;
+  margin-top: 0.25rem;
   padding-top: 1rem;
   border-top: 1px solid #eee;
 }
@@ -401,29 +395,10 @@
   color: #e74c3c;
 }
 
-/* 소셜 로그인 섹션 */
+/* 소셜 로그인 — login-form gap으로 로그인 버튼과 간격 유지 */
 .social-login-section {
-  margin-top: 2rem;
-}
-
-.social-login-divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  margin: 1.5rem 0;
-  color: #999;
-  font-size: 0.9rem;
-}
-
-.social-login-divider::before,
-.social-login-divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid #ddd;
-}
-
-.social-login-divider span {
-  padding: 0 1rem;
+  margin-top: 0;
+  width: 100%;
 }
 
 .kakao-login-button {
