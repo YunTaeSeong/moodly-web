@@ -655,11 +655,32 @@ export const registerUser = async (userData) => {
     
     return { success: true, data: response };
   } catch (error) {
-    return { 
-      success: false, 
-      message: error.message || '회원가입에 실패했습니다.',
-      status: error.status
+    const body = error.data?.body && typeof error.data.body === 'object' ? error.data.body : null;
+    return {
+      success: false,
+      message: body?.message || error.message || '회원가입에 실패했습니다.',
+      status: error.status,
+      code: body?.code || error.data?.code,
     };
+  }
+};
+
+/** 회원가입용 이메일 사용 여부 (GET /user/email-available) */
+export const checkUserEmailAvailable = async (email) => {
+  const trimmed = (email || '').trim();
+  if (!trimmed) {
+    return { success: true, exists: false, available: true };
+  }
+  try {
+    const q = encodeURIComponent(trimmed);
+    const data = await apiCall(`/user/email-available?email=${q}`, { method: 'GET' });
+    return {
+      success: true,
+      exists: Boolean(data?.exists),
+      available: data?.available !== false,
+    };
+  } catch (error) {
+    return { success: false, exists: false, available: true, error };
   }
 };
 

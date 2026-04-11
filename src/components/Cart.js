@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
 import { getUserIdFromToken } from '../utils/token';
-import { orderSubtotalFromItems } from '../utils/pricing';
+import {
+  orderSubtotalFromItems,
+  shippingFeeForSubtotal,
+  shippingFeeLabelForSubtotal
+} from '../utils/pricing';
 import {
   getCartItems,
   updateCartQuantity,
@@ -12,8 +16,6 @@ import {
   deleteSelectedCartItems
 } from '../utils/api';
 import './Cart.css';
-
-const SHIPPING_FEE = 3000;
 
 function Cart() {
   const navigate = useNavigate();
@@ -262,7 +264,8 @@ function Cart() {
   // 선택된 상품들의 합계 계산
   const selectedItems = cartItems.filter(item => item.checked);
   const subtotal = orderSubtotalFromItems(selectedItems);
-  const total = subtotal + SHIPPING_FEE;
+  const shipping = shippingFeeForSubtotal(subtotal);
+  const total = subtotal + shipping;
   const allChecked = cartItems.length > 0 && cartItems.every(item => item.checked);
 
   if (!isLoggedIn()) {
@@ -356,7 +359,9 @@ function Cart() {
                         {item.name}
                       </h3>
                       <p className="cart-item-price">1개당 가격: {item.price.toLocaleString()}원</p>
-                      <p className="cart-item-shipping">배송비: {SHIPPING_FEE.toLocaleString()}원</p>
+                      <p className="cart-item-shipping">
+                        배송비: {shippingFeeLabelForSubtotal(subtotal)}
+                      </p>
                     </div>
                     <div className="cart-item-quantity">
                       <button
@@ -412,7 +417,7 @@ function Cart() {
                 </div>
                 <div className="summary-row">
                   <span>배송비</span>
-                  <span>{SHIPPING_FEE.toLocaleString()}원</span>
+                  <span>{shipping === 0 ? '무료' : `${shipping.toLocaleString()}원`}</span>
                 </div>
                 <div className="summary-row total-row">
                   <span>총 결제금액</span>

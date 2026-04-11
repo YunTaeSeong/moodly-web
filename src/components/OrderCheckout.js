@@ -6,11 +6,8 @@ import { getDeliveryAddresses, createDeliveryAddress, fetchUserCoupons, createSe
 import { processPayment } from '../utils/payment';
 import { getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { saveDeliveryAddress } from '../utils/delivery';
-import { orderLineTotal, orderSubtotalFromItems } from '../utils/pricing';
+import { orderLineTotal, orderSubtotalFromItems, shippingFeeForSubtotal } from '../utils/pricing';
 import './OrderCheckout.css';
-
-const SHIPPING_FEE = 3000;
-const FREE_SHIPPING_THRESHOLD = 15000;
 
 function OrderCheckout() {
   const navigate = useNavigate();
@@ -269,7 +266,7 @@ function OrderCheckout() {
     }
   }
   const afterDiscount = Math.max(0, subtotal - discountAmount);
-  const shipping = afterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const shipping = shippingFeeForSubtotal(afterDiscount);
   const total = afterDiscount + shipping;
 
   const handlePayment = async () => {

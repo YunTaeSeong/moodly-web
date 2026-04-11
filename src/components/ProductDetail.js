@@ -13,7 +13,12 @@ import { createInquiryNotification, createInquiryNotificationForAdmin, createInq
 import { getCookie } from '../utils/cookie';
 import { getUserIdFromToken, getAccessToken } from '../utils/token';
 import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons, createServerOrder, prepareCartIdsForCheckout, fetchServerOrders } from '../utils/api';
-import { orderLineTotal, displayListPriceFromSale } from '../utils/pricing';
+import {
+  orderLineTotal,
+  displayListPriceFromSale,
+  shippingFeeForSubtotal,
+  shippingFeeLabelForSubtotal
+} from '../utils/pricing';
 import './ProductDetail.css';
 
 /** 백엔드 Product.price(정가) + 할인율% 와 동일한 기준 */
@@ -1087,7 +1092,7 @@ function ProductDetail() {
     }
 
     const subtotal = Math.max(0, catalogSubtotal - discountAmount);
-    const shippingFee = subtotal >= 15000 ? 0 : 3000;
+    const shippingFee = shippingFeeForSubtotal(subtotal);
     const finalAmount = subtotal + shippingFee;
 
     const orderName = quantity > 1
@@ -2168,7 +2173,7 @@ function ProductDetail() {
                         }
                       }
                       const subtotal = Math.max(0, totalAmount - discountAmount);
-                      return subtotal >= 15000 ? '무료' : '3,000원';
+                      return shippingFeeLabelForSubtotal(subtotal);
                     })()}
                   </span>
                 </div>
@@ -2186,7 +2191,7 @@ function ProductDetail() {
                         }
                       }
                       const subtotal = Math.max(0, totalAmount - discountAmount);
-                      const shippingFee = subtotal >= 15000 ? 0 : 3000;
+                      const shippingFee = shippingFeeForSubtotal(subtotal);
                       return (subtotal + shippingFee).toLocaleString();
                     })()}원
                   </span>

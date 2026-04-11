@@ -28,3 +28,18 @@ export function orderSubtotalFromItems(items) {
   if (!items || !items.length) return 0;
   return round2(items.reduce((sum, it) => sum + orderLineTotal(it), 0));
 }
+
+/** 기본 배송비(원). 무료 배송 기준 금액 이상이면 0 */
+export const DEFAULT_SHIPPING_FEE_KRW = 3000;
+export const FREE_SHIPPING_THRESHOLD_KRW = 15000;
+
+export function shippingFeeForSubtotal(subtotal) {
+  const s = Number(subtotal) || 0;
+  return s >= FREE_SHIPPING_THRESHOLD_KRW ? 0 : DEFAULT_SHIPPING_FEE_KRW;
+}
+
+export function shippingFeeLabelForSubtotal(subtotal) {
+  return shippingFeeForSubtotal(subtotal) === 0
+    ? '무료'
+    : `${DEFAULT_SHIPPING_FEE_KRW.toLocaleString()}원`;
+}

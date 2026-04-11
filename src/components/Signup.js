@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
-import { registerUser } from '../utils/api';
+import { registerUser, checkUserEmailAvailable } from '../utils/api';
 import './Signup.css';
 
 function Signup() {
@@ -22,6 +22,7 @@ function Signup() {
 
   // 아이디 중복 체크를 위한 상태
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const emailCheckSeqRef = React.useRef(0);
 
   // 로그인 상태 체크
   React.useEffect(() => {
@@ -32,12 +33,13 @@ function Signup() {
 
   // 아이디 입력 핸들러 (4-20자 제한)
   const handleUserIdChange = (e) => {
+    emailCheckSeqRef.current += 1;
     let value = e.target.value;
     // 20자 제한
     if (value.length > 20) {
       value = value.slice(0, 20);
     }
-    
+
     setFormData(prev => ({
       ...prev,
       userId: value
@@ -51,11 +53,43 @@ function Signup() {
       }));
     }
 
-    // 아이디 중복 체크는 서버에서 처리하므로 여기서는 유효성만 확인
-    if (value.length >= 4 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      setUserIdStatus('available');
-    } else {
+    // blur 전까지는 서버 미확인 — 입력 변경 시 상태만 초기화
+    setUserIdStatus(null);
+  };
+
+  const handleUserIdBlur = async (e) => {
+    const value = e.target.value.trim();
+    if (
+      !value ||
+      value.length < 4 ||
+      value.length > 20 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    ) {
       setUserIdStatus(null);
+      return;
+    }
+
+    const seq = emailCheckSeqRef.current;
+    setUserIdStatus('checking');
+    const result = await checkUserEmailAvailable(value);
+    if (seq !== emailCheckSeqRef.current) {
+      return;
+    }
+    if (!result.success) {
+      setUserIdStatus(null);
+      return;
+    }
+    if (result.exists) {
+      setUserIdStatus('duplicate');
+      setErrors(prev => ({ ...prev, userId: '사용중인 이메일입니다.' }));
+    } else {
+      setUserIdStatus('available');
+      setErrors(prev => {
+        if (prev.userId === '사용중인 이메일입니다.') {
+          return { ...prev, userId: '' };
+        }
+        return prev;
+      });
     }
   };
 
@@ -151,7 +185,7 @@ function Signup() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.userId)) {
       newErrors.userId = '올바른 이메일 형식을 입력해주세요.';
     } else if (userIdStatus === 'duplicate') {
-      newErrors.userId = '이미 사용중인 아이디(이메일)입니다.';
+      newErrors.userId = '사용중인 이메일입니다.';
     }
 
     // 비밀번호 검사 (영문, 숫자, 특수문자 포함 8-20자)
@@ -241,20 +275,18 @@ function Signup() {
           window.alert('회원가입이 완료되었습니다!');
           navigate('/');
         } else {
-          // 에러 메시지 처리
-          let errorMessage = result.message || '회원가입에 실패했습니다.';
-          
-          // 중복 이메일 에러 처리
-          if (result.status === 400 || result.message?.includes('중복') || result.message?.includes('이미 사용')) {
-            setErrors(prev => ({
-              ...prev,
-              userId: '이미 사용중인 아이디(이메일)입니다.'
-            }));
+          const errorMessage = result.message || '회원가입에 실패했습니다.';
+          const duplicated =
+            result.status === 409 ||
+            result.code === 'EMAIL_001' ||
+            /DUPLICATED_EMAIL|중복|이미 사용/i.test(String(result.message || ''));
+
+          if (duplicated) {
+            setErrors(prev => ({ ...prev, userId: '사용중인 이메일입니다.' }));
             setUserIdStatus('duplicate');
-            errorMessage = '이미 사용중인 아이디(이메일)입니다.';
+          } else {
+            window.alert(errorMessage);
           }
-          
-          window.alert(errorMessage);
         }
       } catch (error) {
         console.error('회원가입 오류:', error);
@@ -297,11 +329,14 @@ function Signup() {
               name="userId"
               value={formData.userId}
               onChange={handleUserIdChange}
+              onBlur={handleUserIdBlur}
               placeholder="example@email.com"
               maxLength={20}
               className={`form-input ${errors.userId || userIdStatus === 'duplicate' ? 'error' : userIdStatus === 'available' ? 'success' : ''}`}
             />
-            {errors.userId && <span className="error-message">{errors.userId}</span>}
+            {(errors.userId || userIdStatus === 'duplicate') && (
+              <span className="error-message">{errors.userId || '사용중인 이메일입니다.'}</span>
+            )}
             {userIdStatus === 'checking' && <span className="checking-message">확인 중...</span>}
           </div>
 
