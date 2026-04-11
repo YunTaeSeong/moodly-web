@@ -448,8 +448,15 @@ function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const productId = parseInt(id);
-  
+  const productId = parseInt(id, 10);
+
+  /** 문의 API는 URL 상품 id 기준(마이페이지·DB와 동일). API 응답의 id가 드물게 어긋나도 목록이 비지 않게 한다. */
+  const resolveInquiryProductId = () => {
+    if (Number.isFinite(productId) && !Number.isNaN(productId)) return productId;
+    const fromProduct = product?.id != null ? Number(product.id) : NaN;
+    return Number.isFinite(fromProduct) ? fromProduct : null;
+  };
+
   // 상품 데이터 상태
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -457,6 +464,13 @@ function ProductDetail() {
   
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'detail');
   const [wishlistStatus, setWishlistStatus] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'detail' || tab === 'review' || tab === 'inquiry') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
   const [quantity, setQuantity] = useState(1);
   const [selectedTotal, setSelectedTotal] = useState(null);
   const [couponReceived, setCouponReceived] = useState(false);
@@ -477,6 +491,7 @@ function ProductDetail() {
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [inquiryContent, setInquiryContent] = useState('');
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
   const [inquiries, setInquiries] = useState([]);
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [selectedInquiryId, setSelectedInquiryId] = useState(null);
@@ -765,14 +780,16 @@ function ProductDetail() {
   // 상품 문의 목록 불러오기 (관리자: 전체 문의 API, 유저: 내 문의 API, 비로그인: localStorage)
   const loadInquiryList = async () => {
     if (!product) return;
+    const idForInquiry = resolveInquiryProductId();
+    if (idForInquiry == null) return;
     if (isLoggedIn()) {
       const res = isAdmin()
-        ? await getAdminProductInquiriesApi({ productId: product.id, page: 0, size: 100 })
-        : await getProductInquiriesApi({ productId: product.id, page: 0, size: 100 });
-      if (res.success && res.data) setInquiries(res.data);
+        ? await getAdminProductInquiriesApi({ productId: idForInquiry, page: 0, size: 100 })
+        : await getProductInquiriesApi({ productId: idForInquiry, page: 0, size: 100 });
+      if (res.success) setInquiries(Array.isArray(res.data) ? res.data : []);
       else setInquiries([]);
     } else {
-      setInquiries(getInquiries(product.id));
+      setInquiries(getInquiries(idForInquiry));
     }
   };
 
@@ -1314,11 +1331,12 @@ function ProductDetail() {
       return;
     }
     setShowInquiryModal(true);
-    setSelectedProductId(product.id);
+    setSelectedProductId(resolveInquiryProductId() ?? product.id);
     setInquiryContent('');
   };
 
   const handleCloseInquiryModal = () => {
+    if (inquirySubmitting) return;
     setShowInquiryModal(false);
     setInquiryContent('');
   };
@@ -1332,25 +1350,37 @@ function ProductDetail() {
       window.alert('문의내용을 입력해주세요.');
       return;
     }
+    if (inquirySubmitting) return;
+
+    const idForInquiry = resolveInquiryProductId();
+    if (idForInquiry == null) {
+      window.alert('상품 정보를 불러올 수 없습니다.');
+      return;
+    }
     if (isLoggedIn()) {
-      const res = await createProductInquiryApi(product.id, inquiryContent.trim());
-      if (res.success) {
-        window.alert('상품 문의가 등록되었습니다.');
-        handleCloseInquiryModal();
-        setInquiryContent('');
-        await loadInquiryList();
-      } else {
-        window.alert(res.message || '상품 문의 등록에 실패했습니다.');
-        if (res.status === 401) navigate('/login');
+      setInquirySubmitting(true);
+      try {
+        const res = await createProductInquiryApi(idForInquiry, inquiryContent.trim());
+        if (res.success) {
+          await loadInquiryList();
+          setInquiryContent('');
+          setShowInquiryModal(false);
+          window.alert('상품 문의가 등록되었습니다.');
+        } else {
+          window.alert(res.message || '상품 문의 등록에 실패했습니다.');
+          if (res.status === 401) navigate('/login');
+        }
+      } finally {
+        setInquirySubmitting(false);
       }
     } else {
-      const inquiryData = { productId: product.id, productName: product.name, content: inquiryContent.trim(), author: getCookie('username') || '회원', userEmail: getCookie('userEmail') || '' };
+      const inquiryData = { productId: idForInquiry, productName: product.name, content: inquiryContent.trim(), author: getCookie('username') || '회원', userEmail: getCookie('userEmail') || '' };
       const newInquiry = addInquiry(inquiryData);
       if (newInquiry) {
         window.alert('상품 문의가 등록되었습니다.');
         handleCloseInquiryModal();
         setInquiryContent('');
-        setInquiries(getInquiries(product.id));
+        setInquiries(getInquiries(idForInquiry));
       } else {
         window.alert('상품 문의 등록에 실패했습니다.');
       }
@@ -1410,7 +1440,7 @@ function ProductDetail() {
       if (updatedInquiry) {
         window.alert('상품 문의가 수정되었습니다.');
         handleCloseEditInquiryModal();
-        setInquiries(getInquiries(product.id));
+        setInquiries(getInquiries(resolveInquiryProductId() ?? product.id));
       } else {
         window.alert('답변이 달린 문의는 수정할 수 없습니다.');
       }
@@ -1433,7 +1463,7 @@ function ProductDetail() {
     } else {
       if ((await import('../utils/inquiry')).deleteInquiry(inquiryId)) {
         window.alert('상품 문의가 삭제되었습니다.');
-        setInquiries(getInquiries(product.id));
+        setInquiries(getInquiries(resolveInquiryProductId() ?? product.id));
       } else {
         window.alert('상품 문의 삭제에 실패했습니다.');
       }
@@ -1465,7 +1495,7 @@ function ProductDetail() {
       if (updatedInquiry) {
         window.alert('답변이 등록되었습니다.');
         handleCloseReplyModal();
-        setInquiries(getInquiries(product.id));
+        setInquiries(getInquiries(resolveInquiryProductId() ?? product.id));
       } else {
         window.alert('답변 등록에 실패했습니다.');
       }
@@ -2029,11 +2059,16 @@ function ProductDetail() {
 
       {/* 상품 문의 작성 모달 */}
       {showInquiryModal && (
-        <div className="inquiry-modal-overlay" onClick={handleCloseInquiryModal}>
+        <div
+          className="inquiry-modal-overlay"
+          onClick={() => {
+            if (!inquirySubmitting) handleCloseInquiryModal();
+          }}
+        >
           <div className="inquiry-modal" onClick={(e) => e.stopPropagation()}>
             <div className="inquiry-modal-header">
               <h3>상품 문의 작성</h3>
-              <button className="inquiry-modal-close" onClick={handleCloseInquiryModal}>
+              <button type="button" className="inquiry-modal-close" disabled={inquirySubmitting} onClick={handleCloseInquiryModal}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -2066,11 +2101,11 @@ function ProductDetail() {
               </div>
             </div>
             <div className="inquiry-modal-footer">
-              <button className="inquiry-modal-btn cancel" onClick={handleCloseInquiryModal}>
+              <button type="button" className="inquiry-modal-btn cancel" disabled={inquirySubmitting} onClick={handleCloseInquiryModal}>
                 취소
               </button>
-              <button className="inquiry-modal-btn submit" onClick={handleSubmitInquiry}>
-                확인
+              <button type="button" className="inquiry-modal-btn submit" disabled={inquirySubmitting} onClick={handleSubmitInquiry}>
+                {inquirySubmitting ? '등록 중…' : '확인'}
               </button>
             </div>
           </div>

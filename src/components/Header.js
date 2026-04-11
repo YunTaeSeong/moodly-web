@@ -31,6 +31,28 @@ function Header() {
     setLoggedIn(isLoggedIn());
   };
 
+  const mapNotificationItem = (n) => ({
+    id: n.id,
+    title: n.title,
+    message: n.notificationMessage || n.message || n.notification_message,
+    link: n.link,
+    read: n.isRead === true || n.is_read === true,
+    createdAt: n.createdAt || n.created_at
+  });
+
+  /** 서버 기준 읽지 않은 개수만 갱신 (배지용) */
+  const refreshUnreadCount = async () => {
+    if (!isLoggedIn()) return;
+    const userId = getUserIdFromToken();
+    if (userId == null || Number.isNaN(userId)) return;
+    const countResult = await getUnreadNotificationCountApi(userId);
+    if (countResult.success) {
+      const c = countResult.data;
+      const n = typeof c === 'number' && !Number.isNaN(c) ? c : Number(c) || 0;
+      setUnreadCount(n);
+    }
+  };
+
   // 알림 목록 가져오기
   const loadNotifications = async () => {
     if (!isLoggedIn()) {
@@ -45,39 +67,32 @@ function Header() {
         return;
       }
 
-      // 알림 목록 조회
       const notificationsResult = await getNotificationsApi(0, 20, userId);
-      console.log('[Header] 알림 조회 결과:', notificationsResult);
-      
       if (notificationsResult.success && notificationsResult.data) {
-        console.log('[Header] 알림 데이터:', notificationsResult.data);
-        // Page 객체에서 content 추출
         const content = notificationsResult.data.content || notificationsResult.data || [];
-        console.log('[Header] 알림 content:', content);
-        
-        const mappedNotifications = content.map(n => ({
-          id: n.id,
-          title: n.title,
-          message: n.notificationMessage || n.message || n.notification_message,
-          link: n.link,
-          read: n.isRead !== undefined ? n.isRead : (n.is_read !== undefined ? n.is_read : false),
-          createdAt: n.createdAt || n.created_at
-        }));
-        
-        console.log('[Header] 매핑된 알림:', mappedNotifications);
+        const mappedNotifications = content.map(mapNotificationItem);
         setNotifications(mappedNotifications);
       } else {
-        console.warn('[Header] 알림 조회 실패:', notificationsResult);
         setNotifications([]);
       }
 
-      // 읽지 않은 알림 개수 조회
-      const countResult = await getUnreadNotificationCountApi(userId);
-      if (countResult.success) {
-        setUnreadCount(countResult.data || 0);
-      }
+      await refreshUnreadCount();
     } catch (error) {
       console.error('알림 로드 오류:', error);
+    }
+  };
+
+  /** SSE data: JSON 한 번 또는 이중 문자열 인코딩 모두 처리 */
+  const parseSseNotification = (raw) => {
+    if (raw == null || raw === '') return null;
+    try {
+      let v = JSON.parse(raw);
+      if (typeof v === 'string') {
+        v = JSON.parse(v);
+      }
+      return v && typeof v === 'object' ? v : null;
+    } catch {
+      return null;
     }
   };
 
@@ -108,28 +123,24 @@ function Header() {
 
       eventSource.addEventListener('notification', (event) => {
         try {
-          const notification = JSON.parse(event.data);
+          const notification = parseSseNotification(event.data);
           console.log('[SSE] 알림 수신:', notification);
-          
-          // 새 알림을 목록 맨 위에 추가
-          setNotifications(prev => [{
-            id: notification.id,
-            title: notification.title,
-            message: notification.notificationMessage || notification.message,
-            link: notification.link,
-            read: notification.isRead || false,
-            createdAt: notification.createdAt
-          }, ...prev]);
-
-          // 읽지 않은 알림 개수 증가
-          if (!notification.isRead) {
-            setUnreadCount(prev => prev + 1);
+          if (!notification) {
+            refreshUnreadCount();
+            return;
           }
 
-          // 알림 목록 새로고침
-          loadNotifications();
+          const mapped = mapNotificationItem(notification);
+          setNotifications((prev) => {
+            const rest = prev.filter((x) => x.id !== mapped.id);
+            return [mapped, ...rest];
+          });
+
+          // 배지는 서버 COUNT로 맞춤(경합·이중 카운트 방지). 연결만 되어 있으면 즉시 반영.
+          refreshUnreadCount();
         } catch (error) {
-          console.error('[SSE] 알림 파싱 오류:', error);
+          console.error('[SSE] 알림 처리 오류:', error);
+          refreshUnreadCount();
         }
       });
 
@@ -164,9 +175,8 @@ function Header() {
   };
 
   useEffect(() => {
-    // 컴포넌트 마운트 시 로그인 상태 확인
     checkLoginStatus();
-    
+
     if (isLoggedIn()) {
       loadNotifications();
       startSSE();
@@ -176,11 +186,27 @@ function Header() {
       setUnreadCount(0);
     }
 
-    // location 변경 시에도 로그인 상태 확인
     checkLoginStatus();
 
     return () => {
       stopSSE();
+    };
+  }, [location]);
+
+  // SSE가 끊기거나 백그라운드 탭에서 놓친 알림: 주기적으로 읽지 않은 개수만 동기화
+  useEffect(() => {
+    if (!isLoggedIn()) return undefined;
+    refreshUnreadCount();
+    const t = setInterval(() => refreshUnreadCount(), 15000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUnreadCount();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVis);
     };
   }, [location]);
 

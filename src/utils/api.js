@@ -1519,6 +1519,18 @@ export const removeWishlistItem = async (productId) => {
 };
 
 // ========== 상품 문의 API (product-service) ==========
+const INQUIRY_FETCH_TIMEOUT_MS = 25000;
+
+async function productInquiryFetch(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), INQUIRY_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const mapInquiryFromApi = (item) => {
   if (!item) return null;
   const status = item.status === 'COMPLETED' ? '답변완료' : '답변대기';
@@ -1544,7 +1556,7 @@ export const createProductInquiryApi = async (productId, content) => {
   try {
     const token = getAccessToken();
     if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
-    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/inquiry/${productId}`, {
+    const response = await productInquiryFetch(`${PRODUCT_API_BASE_URL}/product/inquiry/${productId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ content: content.trim() })
@@ -1553,6 +1565,9 @@ export const createProductInquiryApi = async (productId, content) => {
     if (!response.ok) return { success: false, message: getErrorMessage(data, '문의 등록에 실패했습니다.'), status: response.status };
     return { success: true, data: mapInquiryFromApi(data) };
   } catch (e) {
+    if (e?.name === 'AbortError') {
+      return { success: false, message: '요청 시간이 초과되었습니다. 서버·네트워크 상태를 확인해 주세요.', status: 0 };
+    }
     console.error('상품 문의 등록 오류:', e);
     return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
   }
@@ -1569,7 +1584,7 @@ export const getProductInquiriesApi = async ({ productId, status, content, page 
     if (content) params.set('content', content);
     params.set('page', String(page));
     params.set('size', String(size));
-    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/inquiry/all?${params}`, {
+    const response = await productInquiryFetch(`${PRODUCT_API_BASE_URL}/product/inquiry/all?${params}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
     });
@@ -1578,6 +1593,9 @@ export const getProductInquiriesApi = async ({ productId, status, content, page 
     const list = (data.content || []).map(mapInquiryFromApi);
     return { success: true, data: list, totalElements: data.totalElements ?? list.length, totalPages: data.totalPages ?? 1 };
   } catch (e) {
+    if (e?.name === 'AbortError') {
+      return { success: false, message: '문의 목록 요청 시간이 초과되었습니다.', status: 0 };
+    }
     console.error('상품 문의 목록 조회 오류:', e);
     return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
   }
@@ -1631,7 +1649,7 @@ export const getAdminProductInquiriesApi = async ({ productId, status, content, 
     if (content) params.set('content', content);
     params.set('page', String(page));
     params.set('size', String(size));
-    const response = await fetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry?${params}`, {
+    const response = await productInquiryFetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry?${params}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
     });
@@ -1640,6 +1658,9 @@ export const getAdminProductInquiriesApi = async ({ productId, status, content, 
     const list = (Array.isArray(data) ? data : (data.content || [])).map(mapInquiryFromApi);
     return { success: true, data: list, totalElements: data.totalElements ?? list.length, totalPages: data.totalPages ?? 1 };
   } catch (e) {
+    if (e?.name === 'AbortError') {
+      return { success: false, message: '문의 목록 요청 시간이 초과되었습니다.', status: 0 };
+    }
     console.error('관리자 문의 목록 오류:', e);
     return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
   }
@@ -1926,7 +1947,8 @@ export const getUnreadNotificationCountApi = async (userId) => {
     }
 
     const data = await response.json();
-    return { success: true, data: data };
+    const count = typeof data === 'number' && !Number.isNaN(data) ? data : Number(data?.count ?? data) || 0;
+    return { success: true, data: count };
   } catch (error) {
     console.error('읽지 않은 알림 개수 조회 오류:', error);
     return { success: false, data: 0 };
