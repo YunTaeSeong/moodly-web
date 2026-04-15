@@ -32,10 +32,31 @@
 }
 
 .product-image-container {
+  position: relative;
   width: 100%;
   height: 250px;
   overflow: hidden;
   background-color: #f8f9fa;
+}
+
+.product-discount-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e02020;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  border-radius: 9999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .product-image {
@@ -55,6 +76,7 @@
 
 .product-name {
   font-size: 1.2rem;
+  font-weight: 700;
   margin: 0 0 0.5rem 0;
   color: #2c3e50;
 }
@@ -63,6 +85,24 @@
   font-size: 0.9rem;
   color: #7f8c8d;
   margin: 0 0 1rem 0;
+}
+
+.product-price-block {
+  margin: 0;
+}
+
+.product-list-price {
+  font-size: 0.88rem;
+  color: #95a5a6;
+  text-decoration: line-through;
+  margin: 0 0 0.2rem 0;
+}
+
+.product-sale-price {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #e05a4e;
+  margin: 0;
 }
 
 .product-price {

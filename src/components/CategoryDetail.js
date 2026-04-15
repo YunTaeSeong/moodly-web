@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getAllProducts } from '../utils/api';
+import { displayListPriceFromSale } from '../utils/pricing';
 import './CategoryDetail.css';
+
+const TIER_BADGE_MIN_PRICE = 500_000;
+
+function parseDiscount(raw) {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
 
 // 프론트엔드 카테고리 ID -> 백엔드 카테고리 ID 매핑
 const categoryIdMapping = {
@@ -65,6 +73,7 @@ function CategoryDetail() {
             id: product.id,
             name: product.name,
             price: product.price ? parseFloat(product.price) : 0,
+            discount: parseDiscount(product.discount),
             image: product.image || '',
             description: product.description || ''
           }));
@@ -137,13 +146,25 @@ function CategoryDetail() {
           </div>
         ) : (
           <div className="category-products-grid">
-            {products.map((product) => (
+            {products.map((product) => {
+              const listPrice =
+                product.discount > 0
+                  ? displayListPriceFromSale(product.price, product.discount)
+                  : null;
+              const showTierBadge =
+                product.price >= TIER_BADGE_MIN_PRICE && product.discount > 0;
+              return (
               <div
                 key={product.id}
                 className="category-product-card"
                 onClick={() => handleProductClick(product.id)}
               >
                 <div className="category-product-image-container">
+                  {showTierBadge && (
+                    <span className="category-product-discount-badge" aria-hidden>
+                      {product.discount}%
+                    </span>
+                  )}
                   <img
                     src={product.image || 'https://via.placeholder.com/300?text=No+Image'}
                     alt={product.name}
@@ -153,10 +174,22 @@ function CategoryDetail() {
                 <div className="category-product-info">
                   <h3 className="category-product-name">{product.name}</h3>
                   <p className="category-product-description">{product.description || '설명 없음'}</p>
-                  <p className="category-product-price">{product.price.toLocaleString()}원</p>
+                  {listPrice != null ? (
+                    <div className="category-product-price-block">
+                      <p className="category-product-list-price">
+                        {listPrice.toLocaleString()}원
+                      </p>
+                      <p className="category-product-sale-price">
+                        {product.price.toLocaleString()}원
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="category-product-price">{product.price.toLocaleString()}원</p>
+                  )}
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>

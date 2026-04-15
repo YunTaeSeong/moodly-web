@@ -1670,7 +1670,7 @@ export const getAdminProductInquiriesApi = async ({ productId, status, content, 
     if (content) params.set('content', content);
     params.set('page', String(page));
     params.set('size', String(size));
-    const response = await productInquiryFetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry?${params}`, {
+    const response = await productInquiryFetch(`${PRODUCT_API_BASE_URL}/product/admin/inquiry?${params}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
     });
@@ -1692,7 +1692,7 @@ export const adminReplyProductInquiryApi = async (inquiryId, reply) => {
   try {
     const token = getAccessToken();
     if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
-    const response = await fetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry/${inquiryId}/reply`, {
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/admin/inquiry/${inquiryId}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ reply: reply.trim() })
@@ -1711,7 +1711,7 @@ export const adminUpdateProductInquiryApi = async (inquiryId, content) => {
   try {
     const token = getAccessToken();
     if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
-    const response = await fetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry/${inquiryId}`, {
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/admin/inquiry/${inquiryId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ content: content.trim() })
@@ -1730,7 +1730,7 @@ export const adminDeleteProductInquiryApi = async (inquiryId) => {
   try {
     const token = getAccessToken();
     if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
-    const response = await fetch(`${PRODUCT_API_BASE_URL}/internal/product/inquiry/${inquiryId}`, {
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/admin/inquiry/${inquiryId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });

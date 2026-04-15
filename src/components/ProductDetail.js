@@ -11,7 +11,7 @@ import { getReviewsByProductId, saveReview, findEligiblePurchaseForReview, hasRe
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
-import { getUserIdFromToken, getAccessToken } from '../utils/token';
+import { getUserIdFromToken, getAccessToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons, createServerOrder, prepareCartIdsForCheckout, fetchServerOrders } from '../utils/api';
 import {
   orderLineTotal,
@@ -517,6 +517,8 @@ function ProductDetail() {
   const [reviewContent, setReviewContent] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
+  const isAdminUser = () => (hasRolesInToken() ? isAdminFromToken() : isAdmin());
+
   // 로그인 시 서버 주문(구매 후기 작성 자격 판별용)
   useEffect(() => {
     let cancelled = false;
@@ -906,7 +908,7 @@ function ProductDetail() {
     const idForInquiry = resolveInquiryProductId();
     if (idForInquiry == null) return;
     if (isLoggedIn()) {
-      const res = isAdmin()
+      const res = isAdminUser()
         ? await getAdminProductInquiriesApi({ productId: idForInquiry, page: 0, size: 100 })
         : await getProductInquiriesApi({ productId: idForInquiry, page: 0, size: 100 });
       if (res.success) setInquiries(Array.isArray(res.data) ? res.data : []);
@@ -1547,7 +1549,7 @@ function ProductDetail() {
       return;
     }
     if (isLoggedIn()) {
-      const api = isAdmin() ? adminUpdateProductInquiryApi : updateProductInquiryApi;
+      const api = isAdminUser() ? adminUpdateProductInquiryApi : updateProductInquiryApi;
       const res = await api(editingInquiryId, editingInquiryContent.trim());
       if (res.success) {
         window.alert('상품 문의가 수정되었습니다.');
@@ -1574,7 +1576,7 @@ function ProductDetail() {
   const handleDeleteInquiry = async (inquiryId) => {
     if (!window.confirm('상품 문의를 삭제하시겠습니까?')) return;
     if (isLoggedIn()) {
-      const api = isAdmin() ? adminDeleteProductInquiryApi : deleteProductInquiryApi;
+      const api = isAdminUser() ? adminDeleteProductInquiryApi : deleteProductInquiryApi;
       const res = await api(inquiryId);
       if (res.success) {
         window.alert('상품 문의가 삭제되었습니다.');
@@ -1602,7 +1604,7 @@ function ProductDetail() {
       window.alert('답변 내용을 입력해주세요.');
       return;
     }
-    if (isAdmin()) {
+    if (isAdminUser()) {
       const res = await adminReplyProductInquiryApi(selectedInquiryId, replyContent.trim());
       if (res.success) {
         window.alert('답변이 등록되었습니다.');
@@ -1786,7 +1788,7 @@ function ProductDetail() {
                           </span>
                         </div>
                         <div className="inquiry-item-header-right">
-                          {(canEditDelete || isAdmin()) && (
+                          {(canEditDelete || isAdminUser()) && (
                             <>
                               <button 
                                 className="inquiry-edit-btn"
@@ -1802,7 +1804,7 @@ function ProductDetail() {
                               </button>
                             </>
                           )}
-                          {isAdmin() && inquiry.status === '답변대기' && (
+                          {isAdminUser() && inquiry.status === '답변대기' && (
                             <button 
                               className="inquiry-reply-btn"
                               onClick={() => {

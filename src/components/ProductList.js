@@ -4,7 +4,15 @@ import EventBanner from './EventBanner';
 import HotDeal from './HotDeal';
 import TodaySpecial from './TodaySpecial';
 import { getAllProducts } from '../utils/api';
+import { displayListPriceFromSale } from '../utils/pricing';
 import './ProductList.css';
+
+const TIER_BADGE_MIN_PRICE = 500_000;
+
+function parseDiscount(raw) {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
 
 // 인기 상품 fallback 데이터 (API 실패 시 사용 - data.sql의 인기 상품 16개 + 카테고리별 상품들)
 // 실제 products 테이블의 모든 상품을 포함 (총 40개 상품)
@@ -79,6 +87,7 @@ function ProductList() {
             id: product.id,
             name: product.name,
             price: product.price ? parseFloat(product.price) : 0,
+            discount: parseDiscount(product.discount),
             image: product.image || '',
             description: product.description || ''
           }));
@@ -113,13 +122,24 @@ function ProductList() {
         <div style={{ textAlign: 'center', padding: '2rem' }}>상품을 불러오는 중...</div>
       ) : (
         <div className="product-grid">
-          {products.map((product) => (
+          {products.map((product) => {
+            const disc = product.discount != null ? product.discount : 0;
+            const listPrice =
+              disc > 0 ? displayListPriceFromSale(product.price, disc) : null;
+            const showTierBadge =
+              product.price >= TIER_BADGE_MIN_PRICE && disc > 0;
+            return (
             <div
               key={product.id}
               className="product-card"
               onClick={() => handleProductClick(product.id)}
             >
               <div className="product-image-container">
+                {showTierBadge && (
+                  <span className="product-discount-badge" aria-hidden>
+                    {disc}%
+                  </span>
+                )}
                 <img
                   src={product.image}
                   alt={product.name}
@@ -129,10 +149,18 @@ function ProductList() {
               <div className="product-info">
                 <h3 className="product-name">{product.name}</h3>
                 <p className="product-description">{product.description}</p>
-                <p className="product-price">{product.price.toLocaleString()}원</p>
+                {listPrice != null ? (
+                  <div className="product-price-block">
+                    <p className="product-list-price">{listPrice.toLocaleString()}원</p>
+                    <p className="product-sale-price">{product.price.toLocaleString()}원</p>
+                  </div>
+                ) : (
+                  <p className="product-price">{product.price.toLocaleString()}원</p>
+                )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
