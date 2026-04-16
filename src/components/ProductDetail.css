@@ -66,13 +66,18 @@
 
 .product-detail-image {
   width: 100%;
-  max-width: 450px;
+  max-width: 500px;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f6f7f9;
 }
 
 .product-detail-image img {
   width: 100%;
-  height: auto;
-  border-radius: 12px;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .product-detail-info {
