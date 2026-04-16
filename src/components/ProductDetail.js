@@ -516,11 +516,18 @@ function ProductDetail() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [showPriceGuide, setShowPriceGuide] = useState(false);
+  const [showFreeShippingGuide, setShowFreeShippingGuide] = useState(false);
   const [zoomActive, setZoomActive] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
   const imageZoomRef = useRef(null);
 
   const isAdminUser = () => (hasRolesInToken() ? isAdminFromToken() : isAdmin());
+
+  useEffect(() => {
+    setShowPriceGuide(false);
+    setShowFreeShippingGuide(false);
+  }, [productId]);
 
   // 로그인 시 서버 주문(구매 후기 작성 자격 판별용)
   useEffect(() => {
@@ -2010,27 +2017,99 @@ function ProductDetail() {
           {/* 가격 정보 — 핫딜/특가와 동일: 취소선은 역산 정가, 굵은 글씨는 DB 판매가 */}
           <div className="product-price-section">
             {catalogPct > 0 && (
-              <span className="product-original-price">
-                {displayListPriceFromSale(product.price, catalogPct).toLocaleString()}원
-              </span>
+              <div className="discount-meta-row">
+                <div className="discount-meta-main">
+                  <span className="discount-rate-label">{catalogPct}%</span>
+                  <span className="product-original-price">
+                    {displayListPriceFromSale(product.price, catalogPct).toLocaleString()}원
+                  </span>
+                  <div className="price-guide-anchor">
+                    <button
+                      type="button"
+                      className="coupon-info-button"
+                      aria-label="가격 안내"
+                      onClick={() => setShowPriceGuide((v) => !v)}
+                    >
+                      !
+                    </button>
+                    {showPriceGuide && catalogPct > 0 && (
+                      <div className="price-guide-layer" role="dialog" aria-label="가격 안내">
+                        <div className="price-guide-head">
+                          <strong>가격 안내</strong>
+                          <button
+                            type="button"
+                            className="price-guide-close"
+                            aria-label="닫기"
+                            onClick={() => setShowPriceGuide(false)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="price-guide-body">
+                          <div className="price-guide-left">
+                            <span>{catalogPct}%</span>
+                            <span className="price-guide-origin">
+                              {displayListPriceFromSale(product.price, catalogPct).toLocaleString()}원
+                            </span>
+                          </div>
+                          <p className="price-guide-text">
+                            판매자가 설정한 Moodly 내 판매가격입니다. 이 가격은 판매자의 설정에 따라 변동될 수 있습니다.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
             <div className="price-row">
               <span className="product-detail-price">{product.price.toLocaleString()}원</span>
               {catalogPct > 0 && (
-                <span className="discount-badge">{catalogPct}% 할인</span>
+                <span className="discount-badge">할인</span>
               )}
             </div>
-            {catalogPct > 0 && (
-              <span className="coupon-price-label">
-                쿠폰적용가
-                <svg className="info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
-              </span>
-            )}
           </div>
+          <div className="product-detail-divider" />
+          {product.price >= 15000 && (
+            <>
+              <div className="shipping-info-row shipping-info-row-free">
+                <span>무료배송</span>
+                <div className="price-guide-anchor">
+                  <button
+                    type="button"
+                    className="coupon-info-button"
+                    aria-label="무료배송 안내"
+                    onClick={() => setShowFreeShippingGuide((v) => !v)}
+                  >
+                    !
+                  </button>
+                  {showFreeShippingGuide && (
+                    <div className="price-guide-layer free-shipping-guide-layer" role="dialog" aria-label="무료배송 안내">
+                      <div className="price-guide-head">
+                        <strong>무료배송 안내</strong>
+                        <button
+                          type="button"
+                          className="price-guide-close"
+                          aria-label="닫기"
+                          onClick={() => setShowFreeShippingGuide(false)}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="price-guide-body free-shipping-guide-body">
+                        <p className="price-guide-text">
+                          15,000원 이상 구매 시 무료 배송입니다.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="product-detail-divider" />
+              <div className="shipping-info-row">배송사: Moodly택배</div>
+              <div className="product-detail-divider" />
+            </>
+          )}
 
           {/* 상단에서는 배송/수량/선택을 노출하지 않고, 가격 바로 아래에 버튼만 배치 */}
 
@@ -2052,12 +2131,14 @@ function ProductDetail() {
                 +
               </button>
             </div>
-            <button className="add-to-cart-button" onClick={handleAddToCart}>
-              장바구니
-            </button>
-            <button className="buy-now-button" onClick={handleBuyNow}>
-              결제하기
-            </button>
+            <div className="product-detail-action-buttons">
+              <button className="add-to-cart-button" onClick={handleAddToCart}>
+                장바구니
+              </button>
+              <button className="buy-now-button" onClick={handleBuyNow}>
+                결제하기
+              </button>
+            </div>
           </div>
         </div>
       </div>
