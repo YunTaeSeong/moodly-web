@@ -516,6 +516,9 @@ function ProductDetail() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [zoomActive, setZoomActive] = useState(false);
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+  const imageZoomRef = useRef(null);
 
   const isAdminUser = () => (hasRolesInToken() ? isAdminFromToken() : isAdmin());
 
@@ -1413,6 +1416,17 @@ function ProductDetail() {
     }, 100);
   };
 
+  const handleImageZoomMove = (e) => {
+    const el = imageZoomRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const nx = Math.min(100, Math.max(0, x));
+    const ny = Math.min(100, Math.max(0, y));
+    setZoomPos({ x: nx, y: ny });
+  };
+
   const handleWishlistToggle = async () => {
     if (wishlistStatus) {
       if (isLoggedIn()) {
@@ -1922,8 +1936,33 @@ function ProductDetail() {
       </div>
 
       <div className="product-detail-content">
-        <div className="product-detail-image">
-          <img src={product.image} alt={product.name} />
+        <div
+          className={`product-detail-image-container ${zoomActive ? 'zoom-active' : ''}`}
+          onMouseEnter={() => setZoomActive(true)}
+          onMouseLeave={() => setZoomActive(false)}
+          onMouseMove={handleImageZoomMove}
+        >
+          <div ref={imageZoomRef} className="product-detail-image">
+            <img src={product.image} alt={product.name} />
+            {zoomActive && (
+              <div
+                className="product-image-zoom-lens"
+                style={{
+                  left: `${zoomPos.x}%`,
+                  top: `${zoomPos.y}%`,
+                }}
+              />
+            )}
+          </div>
+          {zoomActive && (
+            <div
+              className="product-image-zoom-preview"
+              style={{
+                backgroundImage: `url(${product.image})`,
+                backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+              }}
+            />
+          )}
         </div>
         <div className="product-detail-info">
           {/* 판매자 정보 (브랜드만 표시) */}
