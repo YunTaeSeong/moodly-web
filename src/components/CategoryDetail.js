@@ -44,6 +44,10 @@ function CategoryDetail() {
   const category = categoryMeta[id];
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [id, subCategoryName]);
+
+  useEffect(() => {
     const loadProducts = async () => {
       // 카테고리 ID가 유효하지 않으면 즉시 종료
       if (!id || !categoryIdMapping[id]) {

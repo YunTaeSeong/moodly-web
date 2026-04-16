@@ -112,3 +112,424 @@
   margin: 0;
 }
 
+/* ========== HOT TREND: 카테고리별 인기 상품 ========== */
+.trend-popular-wrap {
+  margin-top: 2.5rem;
+}
+
+.trend-section-header {
+  border-top: 1px solid #e8e8e8;
+  padding-top: 2rem;
+  margin-bottom: 1.75rem;
+}
+
+.trend-section-title {
+  font-size: 1.65rem;
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.trend-hot {
+  color: #e02020;
+}
+
+.trend-trend {
+  color: #1976d2;
+}
+
+.trend-sub {
+  color: #222;
+  font-weight: 700;
+}
+
+.trend-loading {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #666;
+}
+
+.trend-category-section {
+  margin-bottom: 2.5rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #eee;
+}
+
+.trend-category-section:last-child {
+  border-bottom: none;
+}
+
+.trend-category-inner {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.trend-sidebar-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.trend-sidebar-link {
+  font-size: 0.82rem;
+  color: #666;
+  text-decoration: none;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.trend-sidebar-link:hover {
+  color: #333;
+  text-decoration: underline;
+}
+
+.trend-hot-label {
+  font-size: 0.72rem;
+  color: #888;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.45rem;
+}
+
+.trend-keyword-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.trend-keyword-btn {
+  font-size: 0.7rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fafafa;
+  cursor: pointer;
+  color: #444;
+}
+
+.trend-keyword-btn:hover {
+  background: #fff;
+  border-color: #bbb;
+}
+
+.trend-main {
+  display: grid;
+  grid-template-columns: minmax(220px, 32%) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.trend-banner-wrap {
+  min-height: 320px;
+  height: 100%;
+}
+
+.trend-banner {
+  position: relative;
+  height: 100%;
+  min-height: 320px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f0f0f0;
+  cursor: pointer;
+}
+
+.trend-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.trend-banner-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.75rem 1rem;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+}
+
+.trend-banner-caption strong {
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.trend-banner-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #333;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.trend-banner-prev {
+  left: 8px;
+}
+
+.trend-banner-next {
+  right: 8px;
+}
+
+.trend-banner-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.trend-banner-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 0;
+  cursor: pointer;
+}
+
+.trend-banner-dot.active {
+  background: #333;
+}
+
+.trend-grid-carousel {
+  position: relative;
+}
+
+.trend-grid-panel {
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.trend-product-grid-wrap {
+  width: 100%;
+}
+
+.trend-grid-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.trend-grid-prev {
+  left: 8px;
+}
+
+.trend-grid-next {
+  right: 8px;
+}
+
+.trend-grid-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.trend-product-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  align-content: start;
+  align-items: stretch;
+  grid-auto-rows: 1fr;
+}
+
+.trend-grid-dots {
+  margin-top: 0.7rem;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.trend-grid-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: #d9d9d9;
+  cursor: pointer;
+}
+
+.trend-grid-dot.active {
+  background: #8f8f8f;
+}
+
+.trend-grid-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #999;
+  padding: 2rem 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.trend-mini-card {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  height: 100%;
+}
+
+.trend-mini-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.trend-mini-card-empty {
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.trend-mini-image-wrap {
+  position: relative;
+  aspect-ratio: 1;
+  background: #f8f9fa;
+}
+
+.trend-mini-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.trend-mini-discount-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 0.22rem 0.48rem;
+  background: #e02020;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: 999px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.trend-mini-discount-badge.tier {
+  min-width: 2.35rem;
+  min-height: 2.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trend-mini-body {
+  padding: 0.6rem 0.5rem 0.7rem;
+  height: 86px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.trend-mini-name {
+  margin: 0 0 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #222;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 2.1em;
+}
+
+.trend-mini-discount-label {
+  font-size: 0.62rem;
+  color: #e02020;
+  font-weight: 700;
+  display: inline-block;
+  margin-bottom: 0.15rem;
+  min-height: 0.85rem;
+  line-height: 0.85rem;
+}
+
+.trend-mini-discount-label.is-hidden {
+  visibility: hidden;
+}
+
+.trend-mini-price-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.25rem 0.45rem;
+  min-height: 1.1rem;
+  margin-top: auto;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.trend-mini-original {
+  font-size: 0.7rem;
+  color: #95a5a6;
+  text-decoration: line-through;
+}
+
+.trend-mini-sale {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #111;
+}
+
+.trend-mini-sale.only {
+  color: #111;
+}
+
+@media (max-width: 992px) {
+  .trend-category-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-main {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-banner-wrap,
+  .trend-banner {
+    height: auto;
+    min-height: 240px;
+  }
+
+  .trend-grid-prev {
+    left: 8px;
+  }
+
+  .trend-grid-next {
+    right: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .trend-product-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .trend-section-title {
+    font-size: 1.35rem;
+  }
+}

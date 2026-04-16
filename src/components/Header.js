@@ -123,7 +123,7 @@ function Header() {
 
       eventSource.addEventListener('notification', (event) => {
         try {
-          const notification = parseSseNotification(event.data);
+          const notification = JSON.parse(event.data);
           console.log('[SSE] 알림 수신:', notification);
           if (!notification) {
             refreshUnreadCount();
@@ -136,11 +136,15 @@ function Header() {
             return [mapped, ...rest];
           });
 
-          // 배지는 서버 COUNT로 맞춤(경합·이중 카운트 방지). 연결만 되어 있으면 즉시 반영.
-          refreshUnreadCount();
+          // 읽지 않은 알림 개수 증가
+          if (!notification.isRead) {
+            setUnreadCount(prev => prev + 1);
+          }
+
+          // 알림 목록 새로고침
+          loadNotifications();
         } catch (error) {
-          console.error('[SSE] 알림 처리 오류:', error);
-          refreshUnreadCount();
+          console.error('[SSE] 알림 파싱 오류:', error);
         }
       });
 
