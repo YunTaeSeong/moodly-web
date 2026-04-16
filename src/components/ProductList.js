@@ -343,11 +343,11 @@ function ProductList() {
         <header className="trend-section-header">
           <h2 className="trend-section-title">
             <span className="trend-hot">HOT!</span>{' '}
-            <span className="trend-trend">TREND</span>{' '}
-            <span className="trend-sub">
-              {'\uce74\ud14c\uace0\ub9ac\ubcc4 \ucd94\ucc9c \uad11\uace0\uc0c1\ud488'}
-            </span>
+            <span className="trend-trend">TREND</span>
           </h2>
+          <p className="trend-sub">
+            {'\uce74\ud14c\uace0\ub9ac\ubcc4 \ucd94\ucc9c \uad11\uace0\uc0c1\ud488'}
+          </p>
         </header>
 
         {loading ? (

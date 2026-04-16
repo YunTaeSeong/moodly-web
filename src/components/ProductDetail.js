@@ -1184,6 +1184,13 @@ function ProductDetail() {
   };
 
   const handleBuyNow = () => {
+    if (!isLoggedIn()) {
+      if (window.confirm('로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?')) {
+        navigate('/login');
+      }
+      return;
+    }
+
     if (!product) return;
     if (quantity < 1) {
       window.alert('수량을 선택해주세요.');

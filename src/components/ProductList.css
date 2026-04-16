@@ -139,6 +139,10 @@
 }
 
 .trend-sub {
+  display: block;
+  margin: 0.35rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
   color: #222;
   font-weight: 700;
 }
