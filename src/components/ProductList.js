@@ -30,7 +30,13 @@ function pickCategoryProducts(all, categoryId, limit = 6) {
     .slice(0, limit);
 }
 
-function TrendCategoryRow({ block, products, onProductClick, onCategoryNavigate }) {
+function TrendCategoryRow({
+  block,
+  products,
+  onProductClick,
+  onCategoryNavigate,
+  onSubCategoryNavigate,
+}) {
   const [bannerIdx, setBannerIdx] = useState(0);
   const [gridPage, setGridPage] = useState(0);
   const slides = block.bannerSlides;
@@ -107,14 +113,14 @@ function TrendCategoryRow({ block, products, onProductClick, onCategoryNavigate 
           <div className="trend-hot-keywords">
             <span className="trend-hot-label">{'HOT \ud0a4\uc6cc\ub4dc'}</span>
             <div className="trend-keyword-tags">
-              {block.keywords.map((kw) => (
+              {block.hotKeywords.map((kw) => (
                 <button
-                  key={kw}
+                  key={kw.subCategory}
                   type="button"
                   className="trend-keyword-btn"
-                  onClick={() => onCategoryNavigate(block.routePath)}
+                  onClick={() => onSubCategoryNavigate(block.routePath, kw.subCategory)}
                 >
-                  #{kw}
+                  #{kw.label}
                 </button>
               ))}
             </div>
@@ -333,6 +339,11 @@ function ProductList() {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   };
 
+  const goSubCategory = (routePath, subCategoryName) => {
+    navigate(`/category/${routePath}?sub=${encodeURIComponent(subCategoryName)}`);
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  };
+
   return (
     <div className="product-list-container">
       <EventBanner />
@@ -366,6 +377,7 @@ function ProductList() {
               )}
               onProductClick={goProduct}
               onCategoryNavigate={goCategory}
+              onSubCategoryNavigate={goSubCategory}
             />
           ))
         )}

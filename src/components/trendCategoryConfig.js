@@ -1,117 +1,146 @@
 /**
- * HOT TREND \uce74\ud14c\uace0\ub9ac\ubcc4 \uc139\uc158 \uba54\ud0c0 (\ud55c\uae00\uc740 \uc720\ub2c8\ucf54\ub4dc \uc774\uc2a4\ucf00\uc774\ud504)
- * backendId = DB category_id (\uce74\ud14c\uace0\ub9ac \uc0c1\uc138 \ud398\uc774\uc9c0\uc640 \ub3d9\uc77c)
+ * HOT TREND 카테고리별 섹션 메타
+ * backendId = DB category_id (카테고리 상세 페이지와 동일)
+ * hotKeywords = 서브카테고리 6개 (클릭 시 해당 서브카테고리 필터로 이동)
  */
 export const TREND_CATEGORY_BLOCKS = [
   {
     backendId: 1,
     routePath: 'clothing',
-    title: '\uc758\ub958',
+    title: '의류',
     accent: '#e91e8c',
-    keywords: [
-      '\uc6d0\ud53c\uc2a4',
-      '\ube14\ub77c\uc6b0\uc2a4',
-      '\ud2f0\uc154\uce20',
-      '\uc2a4\ucee4\uce20',
-      '\uc2a4\ub2c8\ucee4\uc988',
-      '\uac00\ubc29',
+    hotKeywords: [
+      { label: '남성의류', subCategory: '남성의류' },
+      { label: '여성의류', subCategory: '여성의류' },
+      { label: '아동의류', subCategory: '아동의류' },
+      { label: '신발', subCategory: '신발' },
+      { label: '가방', subCategory: '가방' },
+      { label: '액세서리', subCategory: '액세서리' },
     ],
     bannerSlides: [
       {
         image:
           'https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=1200&auto=format&fit=crop',
-        line1: '\uc2ec\ud50c \uc2dc\uc98c \uc2e0\uc0c1 ~40%',
-        line2: '\ub370\uc77c\ub9ac\ub85c \uc785\uae30 \uc88b\uc740 \uc544\uc774\ud15c',
+        line1: '심플 시즌 신상 ~40%',
+        line2: '데일리로 입기 좋은 아이템',
       },
       {
         image:
           'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=1200&auto=format&fit=crop',
-        line1: '\uc2a4\ud0c0\uc77c \uc704\ud06c',
-        line2: '\ud2b8\ub80c\ub514\ud55c \uc2e4\ub8e8\uc5c5\uc744 \ub9cc\ub098\ubcf4\uc138\uc694',
+        line1: '스타일 위크',
+        line2: '트렌디한 실루엣을 만나보세요',
       },
     ],
   },
   {
     backendId: 2,
     routePath: 'electronics',
-    title: '\uac00\uc804\u00b7\ub514\uc9c0\ud138',
+    title: '가전·디지털',
     accent: '#1976d2',
-    keywords: ['TV', '\uccad\uc18c\uae30', '\uc5d0\uc5b4\ud504\ub77c\uc774\uc5b4', '\uc8fc\ubc29\uac00\uc804', '\uc74c\ud5a5', '\uc2a4\ub9c8\ud2b8'],
+    hotKeywords: [
+      { label: 'TV/영상가전', subCategory: 'TV/영상가전' },
+      { label: '냉장고', subCategory: '냉장고' },
+      { label: '세탁기/건조기', subCategory: '세탁기/건조기' },
+      { label: '청소기', subCategory: '청소기' },
+      { label: '공기청정기', subCategory: '공기청정기' },
+      { label: '주방가전', subCategory: '주방가전' },
+    ],
     bannerSlides: [
       {
         image:
           'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?q=80&w=1200&auto=format&fit=crop',
-        line1: '\uc2a4\ub9c8\ud2b8 \ud648 \uc704\ud06c',
-        line2: '\uc0dd\ud65c\uc744 \ubc14\uafb8\ub294 \uac00\uc804 \ubaa8\uc74c',
+        line1: '스마트 홈 위크',
+        line2: '생활을 바꾸는 가전 모음',
       },
       {
         image:
           'https://images.unsplash.com/photo-1518444065439-e933c06ce9cd?q=80&w=1200&auto=format&fit=crop',
-        line1: '\ud504\ub9ac\ubbf8\uc5c4 \uc0ac\uc6b4\ub4dc',
-        line2: '\ubab0\uc785\uac10 \uc788\ub294 \uc74c\ud5a5 \uae30\uae30',
+        line1: '프리미엄 사운드',
+        line2: '몰입감 있는 음향 기기',
       },
     ],
   },
   {
     backendId: 3,
     routePath: 'food',
-    title: '\ud478\ub4dc',
+    title: '푸드',
     accent: '#2e7d32',
-    keywords: ['\uc2e0\uc120', '\ud55c\uc6b0', '\uacfc\uc77c', '\uac04\uc2dd', '\uc720\uae30\ub18d', '\ubbf8\ub2c8\ud0a4\ud2b8'],
+    hotKeywords: [
+      { label: '신선식품', subCategory: '신선식품' },
+      { label: '냉동식품', subCategory: '냉동식품' },
+      { label: '간편식', subCategory: '간편식' },
+      { label: '과자/스낵', subCategory: '과자/스낵' },
+      { label: '음료', subCategory: '음료' },
+      { label: '건강식품', subCategory: '건강식품' },
+    ],
     bannerSlides: [
       {
         image:
           'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1200&auto=format&fit=crop',
-        line1: '\uc624\ub298\uc758 \uc2e0\uc120 \ubc30\uc1a1',
-        line2: '\ud14c\uc774\ube14\uae4c\uc9c0 \uc815\uc131 \uac00\ub4dd',
+        line1: '오늘의 신선 배송',
+        line2: '테이블까지 정성 가득',
       },
       {
         image:
           'https://images.unsplash.com/photo-1603048297172-c92544798d5a?q=80&w=1200&auto=format&fit=crop',
-        line1: '\ud504\ub9ac\ubbf8\uc5c4 \uc2dd\uc7ac\ub8cc',
-        line2: '\ud2b9\ubcc4\ud55c \ub0a0\uc744 \uc704\ud55c \ud55c \uc0c1',
+        line1: '프리미엄 식재료',
+        line2: '특별한 날을 위한 한 상',
       },
     ],
   },
   {
     backendId: 4,
     routePath: 'beauty',
-    title: '\ubdf0\ud2f0',
+    title: '뷰티',
     accent: '#c2185b',
-    keywords: ['\uc2a4\ud0a8\ucf00\uc5b4', '\ub9bd', '\ud5a5\uc218', '\ub9c8\uc2a4\ud06c', '\uc120\ud06c\ub9bc', '\uc5d0\uc13c\uc2a4'],
+    hotKeywords: [
+      { label: '스킨케어', subCategory: '스킨케어' },
+      { label: '메이크업', subCategory: '메이크업' },
+      { label: '향수', subCategory: '향수' },
+      { label: '헤어케어', subCategory: '헤어케어' },
+      { label: '바디케어', subCategory: '바디케어' },
+      { label: '선케어', subCategory: '선케어' },
+    ],
     bannerSlides: [
       {
         image:
           'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=1200&auto=format&fit=crop',
-        line1: '\uae30\ucd08 \ucf00\uc5b4 ~35%',
-        line2: '\uac74\uac15\ud55c \ud53c\ubd80\uc758 \uc2dc\uc791',
+        line1: '기초 케어 ~35%',
+        line2: '건강한 피부의 시작',
       },
       {
         image:
           'https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=1200&auto=format&fit=crop',
-        line1: '\ub370\uc77c\ub9ac \uba54\uc774\ud06c\uc5c5',
-        line2: '\uc790\uc5f0\uc2a4\ub7ec\uc6b4 \uceec\ub7ec \uc81c\uc548',
+        line1: '데일리 메이크업',
+        line2: '자연스러운 컬러 제안',
       },
     ],
   },
   {
     backendId: 5,
     routePath: 'home-interior',
-    title: '\ud648\uc778\ud14c\ub9ac\uc5b4',
+    title: '홈인테리어',
     accent: '#6a1b9a',
-    keywords: ['\uc870\uba85', '\ub7ec\uadf8', '\ub514\ud4ef\uc800', '\ud654\ubd84', '\ucfe0\uc158', '\uc218\ub0a9'],
+    hotKeywords: [
+      { label: '가구', subCategory: '가구' },
+      { label: '침구/커튼', subCategory: '침구/커튼' },
+      { label: '조명', subCategory: '조명' },
+      { label: '수납/정리', subCategory: '수납/정리' },
+      { label: '인테리어소품', subCategory: '인테리어소품' },
+      { label: '주방용품', subCategory: '주방용품' },
+    ],
     bannerSlides: [
       {
         image:
           'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=1200&auto=format&fit=crop',
-        line1: '\ub9ac\ube59 \uc2a4\ud0c0\uc77c\ub9c1',
-        line2: '\uc544\ub2dd\ud55c \uacf5\uac04\uc744 \uc644\uc131\ud558\uc138\uc694',
+        line1: '리빙 스타일링',
+        line2: '아늑한 공간을 완성하세요',
       },
       {
         image:
           'https://images.unsplash.com/photo-1556911220-bff31c812dba?q=80&w=1200&auto=format&fit=crop',
-        line1: '\ubb34\ub4dc \uc870\uba85 \ud2b9\uac00',
-        line2: '\ubd84\uc704\uae30\ub97c \ubc14\uafb8\ub294 \ud55c \uc2a4\ud31f',
+        line1: '무드 조명 특가',
+        line2: '분위기를 바꾸는 한 스푼',
       },
     ],
   },
