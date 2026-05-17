@@ -102,11 +102,25 @@ export const getReviewsByProductId = (productId) => {
   }
 };
 
-// 특정 사용자가 작성한 리뷰 가져오기
+// 특정 사용자가 작성한 리뷰 가져오기 (author — 레거시)
 export const getReviewsByAuthor = (author) => {
   try {
     const reviews = getReviews();
-    return reviews.filter(review => review.author === author);
+    return reviews.filter((review) => review.author === author);
+  } catch (error) {
+    console.error('사용자 리뷰를 가져오는 중 오류 발생:', error);
+    return [];
+  }
+};
+
+/** 로그인 회원 ID 기준 내 리뷰 (마이페이지용) */
+export const getReviewsByUserId = (userId) => {
+  try {
+    const uid = userId != null && userId !== '' ? Number(userId) : null;
+    if (uid == null || Number.isNaN(uid)) return [];
+    return getReviews().filter(
+      (review) => review.userId != null && Number(review.userId) === uid
+    );
   } catch (error) {
     console.error('사용자 리뷰를 가져오는 중 오류 발생:', error);
     return [];
