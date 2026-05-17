@@ -9,6 +9,7 @@ import { receiveProductCoupon, getReceivedCoupons, checkCouponExpiry, applyCoupo
 import { allProducts } from '../utils/products';
 import { getReviewsByProductId, saveReview, findEligiblePurchaseForReview, hasReviewForUserProduct } from '../utils/review';
 import { getCategoryProductById } from '../utils/categoryProducts';
+import { resolveCategoryRoutePath } from '../utils/categoryRoutes';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
 import { getUserIdFromToken, getAccessToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
@@ -1942,7 +1943,13 @@ function ProductDetail() {
       <div className="breadcrumb">
         <span className="breadcrumb-item" onClick={() => navigate('/')}>홈</span>
         <span className="breadcrumb-separator"> &gt; </span>
-        <span className="breadcrumb-item" onClick={() => navigate(`/category/${product.categoryId || 'electronics'}`)}>
+        <span
+          className="breadcrumb-item"
+          onClick={() => {
+            const routePath = resolveCategoryRoutePath(product.categoryId) || 'electronics';
+            navigate(`/category/${routePath}`);
+          }}
+        >
           {product.category || '가전용품'}
         </span>
         <span className="breadcrumb-separator"> &gt; </span>

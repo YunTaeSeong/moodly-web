@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getAllProducts } from '../utils/api';
 import { displayListPriceFromSale } from '../utils/pricing';
+import { BACKEND_ID_BY_ROUTE, resolveBackendCategoryId } from '../utils/categoryRoutes';
 import './CategoryDetail.css';
 
 const TIER_BADGE_MIN_PRICE = 500_000;
@@ -10,16 +11,6 @@ function parseDiscount(raw) {
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
 }
-
-// 프론트엔드 카테고리 ID -> 백엔드 카테고리 ID 매핑
-const categoryIdMapping = {
-  'clothing': 1,
-  'electronics': 2,
-  'food': 3,
-  'beauty': 4,
-  'home-interior': 5,
-  'home': 5
-};
 
 // 카테고리 메타데이터
 const categoryMeta = {
@@ -50,7 +41,7 @@ function CategoryDetail() {
   useEffect(() => {
     const loadProducts = async () => {
       // 카테고리 ID가 유효하지 않으면 즉시 종료
-      if (!id || !categoryIdMapping[id]) {
+      if (!id || !BACKEND_ID_BY_ROUTE[id]) {
         setError('유효하지 않은 카테고리입니다.');
         setLoading(false);
         return;
@@ -61,7 +52,7 @@ function CategoryDetail() {
       
       try {
         // 백엔드 카테고리 ID로 변환
-        const backendCategoryId = categoryIdMapping[id];
+        const backendCategoryId = resolveBackendCategoryId(id);
         
         const result = await getAllProducts(backendCategoryId);
         if (result.success && result.data) {
