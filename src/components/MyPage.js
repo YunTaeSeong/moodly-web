@@ -10,6 +10,7 @@ import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDe
 import { getUserIdFromToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { deleteCookie } from '../utils/cookie';
+import { formatKoreanMobilePhone, isValidKoreanMobilePhone } from '../utils/phoneFormat';
 import './MyPage.css';
 
 function MyPage() {
@@ -1530,7 +1531,7 @@ function MyPage() {
                             address: address.address,
                             detailAddress: address.detailAddress || '',
                             recipient: address.recipient,
-                            phoneNumber: address.phoneNumber,
+                            phoneNumber: formatKoreanMobilePhone(address.phoneNumber),
                             isDefault: address.isDefault
                           });
                           setShowDeliveryAddressModal(true);
@@ -1678,9 +1679,17 @@ function MyPage() {
                       <input
                         type="tel"
                         value={deliveryAddressForm.phoneNumber}
-                        onChange={(e) => setDeliveryAddressForm({ ...deliveryAddressForm, phoneNumber: e.target.value })}
+                        onChange={(e) =>
+                          setDeliveryAddressForm({
+                            ...deliveryAddressForm,
+                            phoneNumber: formatKoreanMobilePhone(e.target.value),
+                          })
+                        }
                         placeholder="010-1234-5678"
                         className="form-input"
+                        maxLength={13}
+                        inputMode="numeric"
+                        autoComplete="tel"
                       />
                     </div>
                     <div className="form-group">
@@ -1708,6 +1717,10 @@ function MyPage() {
                         if (!deliveryAddressForm.postcode || !deliveryAddressForm.address || 
                             !deliveryAddressForm.recipient || !deliveryAddressForm.phoneNumber) {
                           window.alert('필수 항목을 모두 입력해주세요.');
+                          return;
+                        }
+                        if (!isValidKoreanMobilePhone(deliveryAddressForm.phoneNumber)) {
+                          window.alert('전화번호는 010-1234-5678 형식(11자리)으로 입력해주세요.');
                           return;
                         }
 

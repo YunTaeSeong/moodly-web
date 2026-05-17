@@ -7,6 +7,7 @@ import { processPayment } from '../utils/payment';
 import { getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { saveDeliveryAddress } from '../utils/delivery';
 import { orderLineTotal, orderSubtotalFromItems, shippingFeeForSubtotal } from '../utils/pricing';
+import { formatKoreanMobilePhone, isValidKoreanMobilePhone } from '../utils/phoneFormat';
 import './OrderCheckout.css';
 
 function OrderCheckout() {
@@ -226,6 +227,10 @@ function OrderCheckout() {
     if (!newAddressForm.postcode || !newAddressForm.address || 
         !newAddressForm.recipient || !newAddressForm.phoneNumber) {
       window.alert('필수 항목을 모두 입력해주세요.');
+      return;
+    }
+    if (!isValidKoreanMobilePhone(newAddressForm.phoneNumber)) {
+      window.alert('전화번호는 010-1234-5678 형식(11자리)으로 입력해주세요.');
       return;
     }
 
@@ -666,9 +671,17 @@ function OrderCheckout() {
                 <input
                   type="tel"
                   value={newAddressForm.phoneNumber}
-                  onChange={(e) => setNewAddressForm({ ...newAddressForm, phoneNumber: e.target.value })}
+                  onChange={(e) =>
+                    setNewAddressForm({
+                      ...newAddressForm,
+                      phoneNumber: formatKoreanMobilePhone(e.target.value),
+                    })
+                  }
                   placeholder="010-1234-5678"
                   className="form-input"
+                  maxLength={13}
+                  inputMode="numeric"
+                  autoComplete="tel"
                 />
               </div>
               <div className="form-group" style={{ marginBottom: '1rem' }}>
