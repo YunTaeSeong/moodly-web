@@ -4,24 +4,6 @@ import './EventBanner.css';
 
 const banners = [
   {
-    id: 1,
-    title: '신년맞이 할인',
-    subtitle: '20%',
-    description: '새해를 맞이하는 특별한 할인',
-    color: '#e74c3c',
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    image: 'https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1200&h=400&fit=crop'
-  },
-  {
-    id: 2,
-    title: '아웃도어 가방, 신발세트',
-    subtitle: '30% 할인',
-    description: '모험을 떠날 준비가 되셨나요?',
-    color: '#27ae60',
-    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    image: 'https://images.unsplash.com/photo-1551524164-6cf77f7e7c8c?w=1200&h=400&fit=crop'
-  },
-  {
     id: 3,
     title: '봄맞이 패션 세일',
     subtitle: '최대 50%',
