@@ -12,7 +12,7 @@ const fallbackTodaySpecialProducts = [
     originalPrice: 65217,
     salePrice: 45000,
     discount: 31,
-    image: 'https://images.unsplash.com/photo-1606800054160-8e3c14e1a0b0?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1672406540156-b3dc8c27de02?q=80&w=774&auto=format&fit=crop',
     description: '아로마 디퓨저로 집안을 향기롭게 만들어보세요. 다양한 아로마 오일과 함께 사용하여 분위기를 연출할 수 있습니다.'
   },
   {
@@ -48,7 +48,7 @@ const fallbackTodaySpecialProducts = [
     originalPrice: 616438,
     salePrice: 450000,
     discount: 27,
-    image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1729225964280-b8672a7d7524?q=80&w=2064&auto=format&fit=crop',
     description: '스마트 로봇 청소기로 자동으로 깨끗한 집을 유지하세요. 스마트 매핑 기능으로 효율적인 청소 경로를 설정합니다.'
   },
   {
@@ -57,7 +57,7 @@ const fallbackTodaySpecialProducts = [
     originalPrice: 250000,
     salePrice: 180000,
     discount: 28,
-    image: 'https://images.unsplash.com/photo-1556910096-6f5e5ad8bcf4?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1672192166555-8736f47194db?q=80&w=870&auto=format&fit=crop',
     description: '대용량 에어프라이어로 건강한 요리를 즐기세요. 기름 없이도 바삭하고 맛있는 요리를 만들 수 있습니다.'
   },
   {

@@ -74,7 +74,7 @@ export const allProducts = [
   // 푸드
   { id: 301, name: '유기농 채소 세트', price: 25000, image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&h=300&fit=crop', description: '신선한 유기농 채소' },
   { id: 302, name: '프리미엄 한우', price: 85000, image: 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=300&h=300&fit=crop', description: '1등급 한우 세트' },
-  { id: 303, name: '수입 치즈 세트', price: 45000, image: 'https://images.unsplash.com/photo-1618164436249-4473940d1f5c?w=300&h=300&fit=crop', description: '프리미엄 수입 치즈' },
+  { id: 303, name: '수입 치즈 세트', price: 45000, image: 'https://plus.unsplash.com/premium_photo-1691939610705-53fdc13289c0?q=80&w=774&auto=format&fit=crop', description: '프리미엄 수입 치즈' },
   { id: 304, name: '신선 과일 박스', price: 35000, image: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=300&h=300&fit=crop', description: '계절 과일 세트' },
   { id: 305, name: '건강 간식 세트', price: 28000, image: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=300&h=300&fit=crop', description: '다양한 건강 간식' },
   { id: 306, name: '유기농 꿀', price: 32000, image: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300&h=300&fit=crop', description: '천연 유기농 꿀' },

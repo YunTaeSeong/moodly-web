@@ -179,7 +179,7 @@ const products = {
     price: 180000,
     originalPrice: 250000,
     discount: 28,
-    image: 'https://images.unsplash.com/photo-1556910096-6f5e5ad8bcf4?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1672192166555-8736f47194db?q=80&w=870&auto=format&fit=crop',
     description: '대용량 에어프라이어로 건강한 요리를 즐기세요. 기름 없이도 바삭하고 맛있는 요리를 만들 수 있습니다.',
     details: '• 대용량으로 가족 단위 요리 가능\n• 기름 없이 바삭한 요리 가능\n• 다양한 요리 모드 제공\n• 빠른 예열로 시간 절약\n• 세척이 쉬운 분리형 부품',
     rating: 4.65,
@@ -191,7 +191,7 @@ const products = {
     price: 450000,
     originalPrice: 616438,
     discount: 27,
-    image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1729225964280-b8672a7d7524?q=80&w=2064&auto=format&fit=crop',
     description: '스마트 로봇 청소기로 자동으로 깨끗한 집을 유지하세요. 스마트 매핑 기능으로 효율적인 청소 경로를 설정합니다.',
     details: '• 스마트 매핑으로 효율적인 청소\n• 자동 충전 기능으로 연속 청소\n• 모바일 앱으로 원격 제어\n• 강력한 흡입력으로 깊은 청소\n• 다양한 바닥재에 적합',
     rating: 4.8,
@@ -239,7 +239,7 @@ const products = {
     price: 45000,
     originalPrice: 65217,
     discount: 31,
-    image: 'https://images.unsplash.com/photo-1606800054160-8e3c14e1a0b0?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1672406540156-b3dc8c27de02?q=80&w=774&auto=format&fit=crop',
     description: '아로마 디퓨저로 집안을 향기롭게 만들어보세요. 다양한 아로마 오일과 함께 사용하여 분위기를 연출할 수 있습니다.',
     details: '• 아로마 오일과 함께 사용하는 디퓨저\n• 다양한 향 옵션 제공\n• 조용한 작동으로 수면 방해 없음\n• LED 조명 기능으로 분위기 연출\n• 넓은 공간 향기 확산',
     rating: 4.65,
@@ -282,7 +282,7 @@ const products = {
     price: 179000,
     originalPrice: 250000,
     discount: 28,
-    image: 'https://images.unsplash.com/photo-1556910096-6f5e5ad8bcf4?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1672192166555-8736f47194db?q=80&w=870&auto=format&fit=crop',
     description: '대용량 에어프라이어로 건강한 요리를 즐기세요.',
     details: '• 대용량 5.5L\n• 빠른 조리\n• 건강한 요리\n• 쉬운 세척\n• 디지털 디스플레이'
   },
@@ -312,7 +312,7 @@ const products = {
     price: 55000,
     originalPrice: 80000,
     discount: 31,
-    image: 'https://images.unsplash.com/photo-1606800054160-8e3c14e1a0b0?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1672406540156-b3dc8c27de02?q=80&w=774&auto=format&fit=crop',
     description: '아로마 디퓨저 세트로 편안한 공간을 만들어보세요.',
     details: '• LED 조명\n• 타이머 기능\n• 조용한 작동\n• 아로마 오일 포함\n• 실내 공기 정화'
   },
@@ -342,7 +342,7 @@ const products = {
     price: 329000,
     originalPrice: 450000,
     discount: 27,
-    image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1729225964280-b8672a7d7524?q=80&w=2064&auto=format&fit=crop',
     description: '강력한 무선 청소기 프로로 깨끗한 집을 만드세요.',
     details: '• 강력한 흡입력\n• 무선 사용\n• 긴 배터리\n• 다양한 헤드\n• HEPA 필터'
   },
@@ -443,7 +443,7 @@ const products = {
     price: 399000,
     originalPrice: 550000,
     discount: 27,
-    image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=500&h=500&fit=crop',
+    image: 'https://plus.unsplash.com/premium_photo-1729225964280-b8672a7d7524?q=80&w=2064&auto=format&fit=crop',
     description: '로봇 진공청소기로 자동으로 깨끗한 집을 만드세요.',
     details: '• 자동 청소\n• 스마트 매핑\n• 강력한 흡입력\n• 자동 충전\n• 모바일 앱 제어'
   }
