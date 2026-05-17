@@ -104,6 +104,41 @@ export const deliveryAddressToJsonString = (addr) => {
  * @param {number|null} [p.couponId] user_coupons.id
  * @param {number} [p.discountAmount] 쿠폰 할인 금액(원)
  */
+/** 결제 대기(PENDING_PAYMENT) 주문만 삭제 — 결제창 취소 시 정리용 */
+export const deleteServerOrder = async (orderNumericId) => {
+  try {
+    if (!getAccessToken()) {
+      return { success: false, message: UNAUTHORIZED_HINT, status: 401 };
+    }
+    if (orderNumericId == null || orderNumericId === '') {
+      return { success: false, message: '주문 ID가 없습니다.' };
+    }
+    const response = await fetchWithRefreshRetry((token) =>
+      fetch(`${ORDER_API_BASE_URL}/order/${orderNumericId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+    );
+    if (!response) {
+      return { success: false, message: UNAUTHORIZED_HINT, status: 401 };
+    }
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: messageForApiFailure(response.status, err, '주문 삭제에 실패했습니다.'),
+        status: response.status,
+      };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('주문 삭제 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
 export const createServerOrder = async (p) => {
   try {
     if (!getAccessToken()) {

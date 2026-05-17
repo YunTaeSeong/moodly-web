@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn } from '../utils/cookie';
 import { getAccessToken } from '../utils/token';
-import { getDeliveryAddresses, createDeliveryAddress, fetchUserCoupons, createServerOrder, prepareCartIdsForCheckout } from '../utils/api';
-import { processPayment } from '../utils/payment';
+import { getDeliveryAddresses, createDeliveryAddress, fetchUserCoupons, createServerOrder, deleteServerOrder, prepareCartIdsForCheckout } from '../utils/api';
+import { processPayment, isPaymentUserCancel } from '../utils/payment';
 import { getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { saveDeliveryAddress } from '../utils/delivery';
 import { orderLineTotal, orderSubtotalFromItems, shippingFeeForSubtotal } from '../utils/pricing';
@@ -294,6 +294,8 @@ function OrderCheckout() {
       ? `${orderItems[0].name} 외 ${orderItems.length - 1}종`
       : orderItems[0].name;
 
+    let createdOrder = null;
+
     try {
       const cartPrep = await prepareCartIdsForCheckout(orderItems, fromCart, cartIds);
       if (!cartPrep.success) {
@@ -323,6 +325,7 @@ function OrderCheckout() {
       }
 
       const srv = orderRes.data;
+      createdOrder = srv;
       const payAmount = Math.round(Number(srv.finalAmount));
 
       if (selectedCoupon) {
@@ -354,8 +357,15 @@ function OrderCheckout() {
         customerName: deliveryAddress.recipient || '고객님',
       });
     } catch (error) {
-      window.alert(`결제 처리 중 오류가 발생했습니다: ${error.message}`);
       sessionStorage.removeItem('pendingOrder');
+      if (isPaymentUserCancel(error) && createdOrder?.id != null) {
+        await deleteServerOrder(createdOrder.id);
+        return;
+      }
+      window.alert(`결제 처리 중 오류가 발생했습니다: ${error.message}`);
+      if (createdOrder?.id != null) {
+        await deleteServerOrder(createdOrder.id);
+      }
     } finally {
       setPaying(false);
     }

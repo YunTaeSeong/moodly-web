@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { isWishlisted, addToWishlist, removeFromWishlist } from '../utils/wishlist';
 import { getDeliveryAddress, saveDeliveryAddress, hasDeliveryAddress } from '../utils/delivery';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
-import { processPayment } from '../utils/payment';
+import { processPayment, isPaymentUserCancel } from '../utils/payment';
 import { getInquiries, addInquiry } from '../utils/inquiry';
 import { receiveProductCoupon, getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { allProducts } from '../utils/products';
@@ -13,7 +13,7 @@ import { resolveCategoryRoutePath } from '../utils/categoryRoutes';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
 import { getCookie } from '../utils/cookie';
 import { getUserIdFromToken, getAccessToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
-import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons, createServerOrder, prepareCartIdsForCheckout, fetchServerOrders } from '../utils/api';
+import { getProductById, addToCart, getDeliveryAddresses, createDeliveryAddress, addWishlistItem, getWishlistItem, removeWishlistItem, createProductInquiryApi, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminReplyProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, fetchUserCoupons, createServerOrder, deleteServerOrder, prepareCartIdsForCheckout, fetchServerOrders } from '../utils/api';
 import {
   orderLineTotal,
   displayListPriceFromSale,
@@ -1121,6 +1121,8 @@ function ProductDetail() {
       image: product.image
     }];
 
+    let createdOrder = null;
+
     try {
       const cartPrep = await prepareCartIdsForCheckout(orderItems, false, []);
       if (!cartPrep.success) {
@@ -1150,6 +1152,7 @@ function ProductDetail() {
       }
 
       const srv = orderRes.data;
+      createdOrder = srv;
       const payAmount = Math.round(Number(srv.finalAmount));
 
       if (selectedCoupon) {
@@ -1179,8 +1182,15 @@ function ProductDetail() {
       await processPayment(paymentData);
       handleCloseCouponModal();
     } catch (error) {
-      window.alert(`결제 처리 중 오류가 발생했습니다: ${error.message}`);
       sessionStorage.removeItem('pendingOrder');
+      if (isPaymentUserCancel(error) && createdOrder?.id != null) {
+        await deleteServerOrder(createdOrder.id);
+        return;
+      }
+      window.alert(`결제 처리 중 오류가 발생했습니다: ${error.message}`);
+      if (createdOrder?.id != null) {
+        await deleteServerOrder(createdOrder.id);
+      }
     }
   };
 

@@ -1,19 +1,35 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { deleteServerOrder, fetchServerOrders } from '../utils/api';
 import './PaymentFail.css';
+
+async function abandonPendingOrderByBusinessId(businessOrderId) {
+  if (!businessOrderId) return;
+  const listRes = await fetchServerOrders();
+  if (!listRes.success || !listRes.data?.length) return;
+  const pending = listRes.data.find(
+    (o) => o.orderId === businessOrderId && o.status === 'PENDING_PAYMENT'
+  );
+  if (pending?.id != null) {
+    await deleteServerOrder(pending.id);
+  }
+}
 
 function PaymentFail() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    // URL 파라미터에서 에러 정보 가져오기
     const code = searchParams.get('code');
     const message = searchParams.get('message');
+    const orderId = searchParams.get('orderId');
 
     if (code && message) {
       console.log('결제 실패:', { code, message });
     }
+
+    sessionStorage.removeItem('pendingOrder');
+    abandonPendingOrderByBusinessId(orderId);
   }, [searchParams]);
 
   const errorMessage = searchParams.get('message') || '결제 처리 중 오류가 발생했습니다.';
@@ -33,13 +49,15 @@ function PaymentFail() {
           {errorMessage}
         </p>
         <div className="payment-result-actions">
-          <button 
+          <button
+            type="button"
             className="payment-result-btn primary"
             onClick={() => navigate(-1)}
           >
             다시 시도
           </button>
-          <button 
+          <button
+            type="button"
             className="payment-result-btn secondary"
             onClick={() => navigate('/')}
           >
@@ -52,4 +70,3 @@ function PaymentFail() {
 }
 
 export default PaymentFail;
-

@@ -25,6 +25,20 @@ export const loadTossPayments = () => {
   });
 };
 
+/** Toss 결제창 X(사용자 취소) 등 */
+export const isPaymentUserCancel = (error) => {
+  if (!error) return false;
+  const code = String(error.code || error.errorCode || '').toUpperCase();
+  const msg = String(error.message || '');
+  return (
+    code === 'USER_CANCEL' ||
+    code === 'PAY_PROCESS_CANCELED' ||
+    code === 'PAY_PROCESS_CANCELLED' ||
+    msg.includes('취소') ||
+    msg.toLowerCase().includes('cancel')
+  );
+};
+
 // 결제 처리 함수
 export const processPayment = async (paymentData) => {
   try {
@@ -52,6 +66,12 @@ export const processPayment = async (paymentData) => {
 
     return { success: true };
   } catch (error) {
+    if (isPaymentUserCancel(error)) {
+      const cancelError = new Error('결제가 취소되었습니다.');
+      cancelError.code = 'USER_CANCEL';
+      cancelError.userCancel = true;
+      throw cancelError;
+    }
     console.error('결제 처리 중 오류:', error);
     throw error;
   }
