@@ -2,13 +2,39 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, deleteCookie } from '../utils/cookie';
 import { logout as authLogout } from '../utils/authApi';
-import { searchProducts, getNotificationsApi, getUnreadNotificationCountApi, markNotificationAsReadApi, markAllNotificationsAsReadApi } from '../utils/api';
+import {
+  searchProducts,
+  getNotificationsApi,
+  getUnreadNotificationCountApi,
+  markNotificationAsReadApi,
+  markAllNotificationsAsReadApi,
+  deleteNotificationApi,
+  deleteAllNotificationsApi,
+} from '../utils/api';
 import { getUserIdFromToken } from '../utils/token';
 import { getAccessToken } from '../utils/token';
 import CategorySidebar from './CategorySidebar';
 import './Header.css';
 
 const NOTIFICATION_API_BASE_URL = process.env.REACT_APP_NOTIFICATION_API_BASE_URL || 'http://localhost:8086';
+
+function NotificationCloseIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
 
 function Header() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -312,6 +338,42 @@ function Header() {
     }
   };
 
+  const handleDeleteNotification = async (e, notificationId) => {
+    e.stopPropagation();
+    if (!isLoggedIn()) return;
+
+    try {
+      const userId = getUserIdFromToken();
+      if (!userId) return;
+
+      const result = await deleteNotificationApi(notificationId, userId);
+      if (result.success) {
+        setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+        await refreshUnreadCount();
+      }
+    } catch (error) {
+      console.error('알림 삭제 오류:', error);
+    }
+  };
+
+  const handleDeleteAllNotifications = async (e) => {
+    e.stopPropagation();
+    if (!isLoggedIn() || notifications.length === 0) return;
+
+    try {
+      const userId = getUserIdFromToken();
+      if (!userId) return;
+
+      const result = await deleteAllNotificationsApi(userId);
+      if (result.success) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('모든 알림 삭제 오류:', error);
+    }
+  };
+
   const handleLoginClick = () => {
     navigate('/login');
   };
@@ -482,6 +544,17 @@ function Header() {
                             모두 읽음
                           </button>
                         )}
+                        {notifications.length > 0 && (
+                          <button
+                            type="button"
+                            className="notification-icon-dismiss-btn notification-header-dismiss-btn"
+                            title="모든 알림 삭제"
+                            aria-label="모든 알림 삭제"
+                            onClick={handleDeleteAllNotifications}
+                          >
+                            <NotificationCloseIcon />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="notification-list">
@@ -515,6 +588,15 @@ function Header() {
                                 }) : '')}
                               </div>
                             </div>
+                            <button
+                              type="button"
+                              className="notification-icon-dismiss-btn notification-item-dismiss-btn"
+                              title="알림 삭제"
+                              aria-label="알림 삭제"
+                              onClick={(e) => handleDeleteNotification(e, notification.id)}
+                            >
+                              <NotificationCloseIcon />
+                            </button>
                             {!notification.read && <div className="notification-dot"></div>}
                           </div>
                         ))

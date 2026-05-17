@@ -2027,3 +2027,58 @@ export const markAllNotificationsAsReadApi = async (userId) => {
     return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
   }
 };
+
+// 알림 삭제
+export const deleteNotificationApi = async (notificationId, userId) => {
+  try {
+    if (!userId || !notificationId) {
+      return { success: false, message: 'userId와 notificationId가 필요합니다.' };
+    }
+
+    const response = await fetch(
+      `${NOTIFICATION_API_BASE_URL}/notification/${notificationId}?userId=${userId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.message || '알림 삭제 실패', status: response.status };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('알림 삭제 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
+
+// 모든 알림 삭제
+export const deleteAllNotificationsApi = async (userId) => {
+  try {
+    if (!userId) {
+      return { success: false, message: 'userId가 필요합니다.' };
+    }
+
+    const response = await fetch(`${NOTIFICATION_API_BASE_URL}/notification?userId=${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.message || '모든 알림 삭제 실패', status: response.status };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('모든 알림 삭제 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0, originalError: error };
+  }
+};
