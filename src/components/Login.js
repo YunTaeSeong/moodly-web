@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { setCookie } from '../utils/cookie';
+import { setSessionCookie } from '../utils/cookie';
 import { authenticateUser, findPassword } from '../utils/user';
 import { login, kakaoLogin } from '../utils/authApi';
 import { requestFindId, confirmFindId, requestPasswordReset } from '../utils/api';
@@ -46,7 +46,7 @@ function Login() {
       const result = await kakaoLogin(code);
       
       if (result.success) {
-        setCookie('isLoggedIn', 'true', 7);
+        setSessionCookie('isLoggedIn', 'true');
         navigate('/');
       } else {
         setError(result.message || '카카오 로그인에 실패했습니다.');
@@ -108,15 +108,15 @@ function Login() {
 
     // 기존 테스트 계정 체크 (하위 호환성 유지)
     if (username === 'test' && password === 'test') {
-      setCookie('isLoggedIn', 'true', 7);
-      setCookie('username', username, 7);
-      setCookie('userEmail', 'test@test.com', 7);
+      setSessionCookie('isLoggedIn', 'true');
+      setSessionCookie('username', username);
+      setSessionCookie('userEmail', 'test@test.com');
       navigate('/');
       return;
     } else if (username === 'admin@admin.com' && password === 'admin') {
-      setCookie('isLoggedIn', 'true', 7);
-      setCookie('username', 'admin', 7);
-      setCookie('userEmail', 'admin@admin.com', 7);
+      setSessionCookie('isLoggedIn', 'true');
+      setSessionCookie('username', 'admin');
+      setSessionCookie('userEmail', 'admin@admin.com');
       navigate('/');
       return;
     }
@@ -124,9 +124,9 @@ function Login() {
     // 로컬 스토리지 기반 사용자 체크 (하위 호환성 유지)
     const localUser = authenticateUser(username, password);
     if (localUser) {
-      setCookie('isLoggedIn', 'true', 7);
-      setCookie('username', localUser.name, 7);
-      setCookie('userEmail', localUser.userId, 7);
+      setSessionCookie('isLoggedIn', 'true');
+      setSessionCookie('username', localUser.name);
+      setSessionCookie('userEmail', localUser.userId);
       navigate('/');
       return;
     }
@@ -138,8 +138,8 @@ function Login() {
       if (result.success) {
         // 로그인 성공 - 토큰은 authApi에서 자동으로 저장됨
         // 쿠키도 설정 (기존 코드 호환성)
-        setCookie('isLoggedIn', 'true', 7);
-        setCookie('userEmail', username, 7);
+        setSessionCookie('isLoggedIn', 'true');
+        setSessionCookie('userEmail', username);
         
         navigate('/');
       } else {

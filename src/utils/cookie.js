@@ -2,10 +2,37 @@
 
 import { hasTokens } from './token';
 
+const encodeCookieValue = (value) => encodeURIComponent(String(value ?? ''));
+
 export const setCookie = (name, value, days = 7) => {
+  const encoded = encodeCookieValue(value);
+  if (days == null) {
+    document.cookie = `${name}=${encoded};path=/;SameSite=Lax`;
+    return;
+  }
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+  document.cookie = `${name}=${encoded};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+};
+
+/** 브라우저 세션 종료 시 삭제되는 쿠키 (로그인 UI용) */
+export const setSessionCookie = (name, value) => {
+  setCookie(name, value, null);
+};
+
+/** 토큰 없을 때 남은 로그인 쿠키 제거 */
+export const clearAuthCookies = () => {
+  deleteCookie('isLoggedIn');
+  deleteCookie('username');
+  deleteCookie('userEmail');
+};
+
+export const syncAuthCookiesWithTokens = () => {
+  if (!hasTokens()) {
+    clearAuthCookies();
+    return false;
+  }
+  return true;
 };
 
 export const getCookie = (name) => {
@@ -24,12 +51,10 @@ export const deleteCookie = (name) => {
 };
 
 export const isLoggedIn = () => {
-  // 토큰 기반 로그인 상태 확인 (우선)
   if (hasTokens()) {
     return true;
   }
-  // 기존 쿠키 기반 로그인 상태 확인 (하위 호환성)
-  return getCookie('isLoggedIn') === 'true';
+  return false;
 };
 
 // 관리자 체크 함수

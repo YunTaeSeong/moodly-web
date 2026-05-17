@@ -1,40 +1,54 @@
-// 토큰 관리 유틸리티 (localStorage)
+// 토큰 관리 — sessionStorage (브라우저/탭 종료 시 삭제)
 
 const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 
-// 토큰 저장
+const tokenStorage = () => window.sessionStorage;
+
+/** 이전 버전 localStorage 토큰 제거 */
+const clearLegacyTokenStorage = () => {
+  try {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
 export const setTokens = (accessToken, refreshToken) => {
+  clearLegacyTokenStorage();
   if (accessToken) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    tokenStorage().setItem(ACCESS_TOKEN_KEY, accessToken);
   }
   if (refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    tokenStorage().setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
 };
 
-// Access Token 가져오기
 export const getAccessToken = () => {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  return tokenStorage().getItem(ACCESS_TOKEN_KEY);
 };
 
-// Refresh Token 가져오기
 export const getRefreshToken = () => {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return tokenStorage().getItem(REFRESH_TOKEN_KEY);
 };
 
-// 토큰 삭제 (로그아웃)
 export const clearTokens = () => {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  tokenStorage().removeItem(ACCESS_TOKEN_KEY);
+  tokenStorage().removeItem(REFRESH_TOKEN_KEY);
+  clearLegacyTokenStorage();
 };
 
-// 로그인 상태 확인
 export const hasTokens = () => {
   return !!getAccessToken() && !!getRefreshToken();
 };
 
-// JWT payload 파싱 (공통)
+/** 앱 로드 시: 예전 localStorage 토큰 제거 */
+export const syncAuthSessionOnLoad = () => {
+  clearLegacyTokenStorage();
+  return hasTokens();
+};
+
 const getPayload = () => {
   try {
     const token = getAccessToken();
@@ -47,7 +61,6 @@ const getPayload = () => {
   }
 };
 
-// JWT 토큰에서 userId 추출
 export const getUserIdFromToken = () => {
   try {
     const payload = getPayload();
@@ -59,14 +72,12 @@ export const getUserIdFromToken = () => {
   }
 };
 
-// JWT에 roles/role 클레임이 있는지
 export const hasRolesInToken = () => {
   const payload = getPayload();
   if (!payload) return false;
   return payload.roles != null || payload.role != null;
 };
 
-// JWT 토큰에서 관리자(ADMIN) 여부 확인 (roles 클레임 기준)
 export const isAdminFromToken = () => {
   try {
     const payload = getPayload();
@@ -79,4 +90,3 @@ export const isAdminFromToken = () => {
     return false;
   }
 };
-

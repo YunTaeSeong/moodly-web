@@ -9,7 +9,7 @@ import { allProducts } from '../utils/products';
 import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi, fetchUserCoupons, fetchReceivableCoupons, issueCouponById, fetchServerOrders, mapServerOrderToMyPageRow, cancelServerPayment } from '../utils/api';
 import { getUserIdFromToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
-import { deleteCookie } from '../utils/cookie';
+import { clearAuthCookies } from '../utils/cookie';
 import { formatKoreanMobilePhone, isValidKoreanMobilePhone } from '../utils/phoneFormat';
 import './MyPage.css';
 
@@ -753,9 +753,7 @@ function MyPage() {
         setTimeout(async () => {
           // 로그아웃 처리 (서버의 refresh token은 이미 삭제됨)
           await logout();
-          deleteCookie('isLoggedIn');
-          deleteCookie('userEmail');
-          deleteCookie('username');
+          clearAuthCookies();
           
           // 로그인 페이지로 이동
           window.alert('비밀번호가 변경되었습니다. 다시 로그인해주세요.');

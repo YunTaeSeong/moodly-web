@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { isLoggedIn, deleteCookie } from '../utils/cookie';
+import { isLoggedIn, clearAuthCookies } from '../utils/cookie';
 import { logout as authLogout } from '../utils/authApi';
 import {
   searchProducts,
@@ -386,10 +386,7 @@ function Header() {
       // auth-service의 logout API 호출 및 토큰 삭제
       await authLogout();
       
-      // 쿠키도 삭제 (기존 코드 호환성)
-      deleteCookie('isLoggedIn');
-      deleteCookie('username');
-      deleteCookie('userEmail');
+      clearAuthCookies();
       
       // 로그인 상태 업데이트
       setLoggedIn(false);
@@ -405,9 +402,7 @@ function Header() {
       console.error('로그아웃 중 오류:', error);
       // 에러가 발생해도 로그아웃 처리
       stopSSE();
-      deleteCookie('isLoggedIn');
-      deleteCookie('username');
-      deleteCookie('userEmail');
+      clearAuthCookies();
       setLoggedIn(false);
       setNotifications([]);
       setUnreadCount(0);

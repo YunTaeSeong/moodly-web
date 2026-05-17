@@ -16,14 +16,16 @@ import PaymentFail from './components/PaymentFail';
 import HotDealDetail from './components/HotDealDetail';
 import TodaySpecialDetail from './components/TodaySpecialDetail';
 import ResetPassword from './components/ResetPassword';
-import { isLoggedIn } from './utils/cookie';
+import { isLoggedIn, syncAuthCookiesWithTokens } from './utils/cookie';
+import { syncAuthSessionOnLoad } from './utils/token';
 import './App.css';
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    // 앱 시작 시 로그인 상태 확인
+    syncAuthSessionOnLoad();
+    syncAuthCookiesWithTokens();
     setLoggedIn(isLoggedIn());
     
     // 쿠키 변경 감지를 위한 주기적 체크
