@@ -7,7 +7,8 @@ import { processPayment, isPaymentUserCancel } from '../utils/payment';
 import { getInquiries, addInquiry } from '../utils/inquiry';
 import { receiveProductCoupon, getReceivedCoupons, checkCouponExpiry, applyCoupon } from '../utils/coupon';
 import { allProducts } from '../utils/products';
-import { getReviewsByProductId, saveReview, findEligiblePurchaseForReview, hasReviewForUserProduct } from '../utils/review';
+import { getReviewsByProductId, saveReview, findEligiblePurchaseForReview, hasReviewForPurchase, formatReviewAuthor, getReviewSaveFailureMessage } from '../utils/review';
+import { compressImageFileForReview } from '../utils/reviewImage';
 import { getCategoryProductById } from '../utils/categoryProducts';
 import { resolveCategoryRoutePath } from '../utils/categoryRoutes';
 import { createInquiryNotification, createInquiryNotificationForAdmin, createInquiryReplyNotification } from '../utils/notification';
@@ -477,6 +478,7 @@ function ProductDetail() {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
   const [quantity, setQuantity] = useState(1);
   const [selectedTotal, setSelectedTotal] = useState(null);
   const [couponReceived, setCouponReceived] = useState(false);
@@ -517,6 +519,7 @@ function ProductDetail() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState('');
   const [reviewImages, setReviewImages] = useState([]);
+  const [reviewImageViewer, setReviewImageViewer] = useState(null);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [showPriceGuide, setShowPriceGuide] = useState(false);
   const [showFreeShippingGuide, setShowFreeShippingGuide] = useState(false);
@@ -593,29 +596,43 @@ function ProductDetail() {
     setReviewImages([]);
   };
 
-  const handleReviewImageUpload = (e) => {
+  const handleReviewImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
+    e.target.value = '';
     if (reviewImages.length + files.length > 3) {
       window.alert('최대 3장까지만 업로드 가능합니다.');
-      e.target.value = '';
       return;
     }
-    files.forEach((file) => {
-      if (!file.type.startsWith('image/')) {
-        window.alert('이미지 파일만 업로드 가능합니다.');
-        return;
+    for (const file of files) {
+      try {
+        const compressed = await compressImageFileForReview(file);
+        setReviewImages((prev) => {
+          if (prev.length >= 3) return prev;
+          return [...prev, compressed];
+        });
+      } catch (err) {
+        window.alert(err?.message || '이미지 처리에 실패했습니다.');
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setReviewImages((prev) => [...prev, event.target.result]);
-      };
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
+    }
   };
 
   const handleReviewImageRemove = (index) => {
     setReviewImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const openReviewImageViewer = (images, index = 0) => {
+    if (!images?.length) return;
+    setReviewImageViewer({ images, index: Math.min(index, images.length - 1) });
+  };
+
+  const closeReviewImageViewer = () => setReviewImageViewer(null);
+
+  const stepReviewImageViewer = (delta) => {
+    setReviewImageViewer((prev) => {
+      if (!prev?.images?.length) return prev;
+      const next = (prev.index + delta + prev.images.length) % prev.images.length;
+      return { ...prev, index: next };
+    });
   };
 
   const handleSubmitProductReview = () => {
@@ -636,14 +653,29 @@ function ProductDetail() {
     const username = getCookie('username') || '회원';
     const { rawOrder, line } = reviewWriteContext;
     const pid = Number(line.productId);
-    if (hasReviewForUserProduct(uid, pid, username)) {
-      window.alert('이미 이 상품에 대한 구매후기를 작성하셨습니다.');
+    const orderItemId =
+      line.id != null && line.id !== ''
+        ? line.id
+        : rawOrder.orderId
+          ? `${rawOrder.orderId}-${pid}`
+          : null;
+    if (
+      hasReviewForPurchase({
+        orderItemId,
+        orderId: rawOrder.orderId,
+        productId: pid,
+        userId: uid,
+        authorFallback: username,
+      })
+    ) {
+      window.alert('이미 이 구매 건에 대한 구매후기를 작성하셨습니다.');
       return;
     }
     setReviewSubmitting(true);
     try {
-      const saved = saveReview({
+      const saveResult = saveReview({
         orderId: rawOrder.orderId,
+        orderItemId,
         productId: pid,
         productName: line.productName || product?.name || '상품',
         productImage: line.productImage || product?.image || '',
@@ -654,7 +686,7 @@ function ProductDetail() {
         immutable: true,
         images: reviewImages,
       });
-      if (saved) {
+      if (saveResult?.success) {
         window.alert('구매후기가 등록되었습니다.');
         setReviewListVersion((v) => v + 1);
         setShowReviewModal(false);
@@ -663,7 +695,7 @@ function ProductDetail() {
         setReviewContent('');
         setReviewImages([]);
       } else {
-        window.alert('구매후기 등록에 실패했습니다.');
+        window.alert(getReviewSaveFailureMessage(saveResult?.reason));
       }
     } finally {
       setReviewSubmitting(false);
@@ -981,6 +1013,39 @@ function ProductDetail() {
       setReviews(productReviews);
     }
   }, [product, activeTab, reviewSortOrder, reviewListVersion]);
+
+  // 마이페이지 등에서 ?tab=review&reviewId= 로 진입 시 해당 후기로 스크롤
+  useEffect(() => {
+    const highlightReviewId = searchParams.get('reviewId');
+    if (!highlightReviewId || activeTab !== 'review' || !product || reviews.length === 0) return;
+
+    let highlightTimer;
+    const timer = window.setTimeout(() => {
+      document.querySelector('.product-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const el = document.querySelector(`[data-review-id="${CSS.escape(highlightReviewId)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('review-item--highlighted');
+        highlightTimer = window.setTimeout(() => el.classList.remove('review-item--highlighted'), 2500);
+      }
+    }, 200);
+
+    return () => {
+      window.clearTimeout(timer);
+      if (highlightTimer) window.clearTimeout(highlightTimer);
+    };
+  }, [searchParams, activeTab, product, reviews, reviewListVersion]);
+
+  useEffect(() => {
+    if (!reviewImageViewer) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') closeReviewImageViewer();
+      if (e.key === 'ArrowLeft') stepReviewImageViewer(-1);
+      if (e.key === 'ArrowRight') stepReviewImageViewer(1);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [reviewImageViewer]);
 
   // 로딩 중
   if (loading) {
@@ -1754,7 +1819,7 @@ function ProductDetail() {
                   {reviews.map((review) => {
                     const thumbSrc = review.productImage || product?.image || '';
                     return (
-                      <div key={review.id} className="review-item">
+                      <article key={review.id} className="review-item review-item-card" data-review-id={String(review.id)}>
                         <div className="review-item-layout">
                           <div className="review-item-thumb">
                             {thumbSrc ? (
@@ -1763,49 +1828,56 @@ function ProductDetail() {
                               <div className="review-item-thumb-placeholder" aria-hidden />
                             )}
                           </div>
-                          <div className="review-header-section">
-                            <div className="review-author-row">
-                              <span className="review-author">{review.author}</span>
-                              <div className="review-rating">
-                                {[...Array(5)].map((_, i) => (
-                                  <svg
-                                    key={i}
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    fill={i < review.rating ? "#ff9800" : "#e0e0e0"}
-                                    className="review-star"
-                                  >
-                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                  </svg>
-                                ))}
+                          <div className="review-body">
+                            <div className="review-meta">
+                              <div className="review-meta-top">
+                                <span className="review-author">{formatReviewAuthor(review)}</span>
+                                <time className="review-date">
+                                  {new Date(review.createdAt).toLocaleDateString('ko-KR', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })}
+                                </time>
                               </div>
-                              <span className="review-date">
-                                {new Date(review.createdAt).toLocaleDateString('ko-KR', {
-                                  year: 'numeric',
-                                  month: 'numeric',
-                                  day: 'numeric'
-                                }).replace(/\./g, '.').replace(/\s/g, '')}
-                              </span>
+                              <div className="review-rating" aria-label={`${review.rating}점`}>
+                                  {[...Array(5)].map((_, i) => (
+                                    <svg
+                                      key={i}
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 24 24"
+                                      fill={i < review.rating ? '#ff9800' : '#e0e0e0'}
+                                      className="review-star"
+                                      aria-hidden
+                                    >
+                                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                    </svg>
+                                  ))}
+                              </div>
                             </div>
-                            <div className="review-product-title">{review.productName}</div>
-                            {review.images && review.images.length > 0 && (
+                            {review.images?.length > 0 ? (
                               <div className="review-images">
                                 {review.images.map((image, index) => (
-                                  <img
+                                  <button
                                     key={index}
-                                    src={image}
-                                    alt={`리뷰 이미지 ${index + 1}`}
-                                    className="review-image"
-                                  />
+                                    type="button"
+                                    className="review-image-btn"
+                                    aria-label={`후기 사진 ${index + 1} 크게 보기`}
+                                    onClick={() => openReviewImageViewer(review.images, index)}
+                                  >
+                                    <img src={image} alt="" className="review-image" />
+                                  </button>
                                 ))}
                               </div>
-                            )}
-                            <div className="review-content">
-                              <p>{review.content}</p>
-                            </div>
+                            ) : null}
+                            {review.content ? (
+                              <div className="review-content">
+                                <p>{review.content}</p>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
-                      </div>
+                      </article>
                     );
                   })}
                 </div>
@@ -2561,6 +2633,55 @@ function ProductDetail() {
                 {reviewSubmitting ? '등록 중…' : '등록'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {reviewImageViewer && (
+        <div
+          className="review-image-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="후기 사진 크게 보기"
+          onClick={closeReviewImageViewer}
+        >
+          <div className="review-image-lightbox-inner" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="review-image-lightbox-close" onClick={closeReviewImageViewer} aria-label="닫기">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            {reviewImageViewer.images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  className="review-image-lightbox-nav review-image-lightbox-nav--prev"
+                  onClick={() => stepReviewImageViewer(-1)}
+                  aria-label="이전 사진"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="review-image-lightbox-nav review-image-lightbox-nav--next"
+                  onClick={() => stepReviewImageViewer(1)}
+                  aria-label="다음 사진"
+                >
+                  ›
+                </button>
+              </>
+            )}
+            <img
+              src={reviewImageViewer.images[reviewImageViewer.index]}
+              alt=""
+              className="review-image-lightbox-img"
+            />
+            {reviewImageViewer.images.length > 1 && (
+              <span className="review-image-lightbox-counter">
+                {reviewImageViewer.index + 1} / {reviewImageViewer.images.length}
+              </span>
+            )}
           </div>
         </div>
       )}

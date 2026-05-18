@@ -1321,6 +1321,21 @@
   flex: 1;
 }
 
+.review-product-info--link {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.review-product-info--link:hover {
+  background-color: #f8f9fa;
+}
+
+.review-product-info--link:focus-visible {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
 .review-product-image {
   width: 100px;
   height: 100px;

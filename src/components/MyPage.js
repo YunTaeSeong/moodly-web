@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
-import { getReviewsByUserId, hasReviewForUserProduct, saveReview, deleteReview, buildWritableReviewRows } from '../utils/review';
+import { getReviewsByUserId, hasReviewForPurchase, saveReview, deleteReview, buildWritableReviewRows, getReviewSaveFailureMessage } from '../utils/review';
+import { compressImageFileForReview } from '../utils/reviewImage';
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
@@ -370,26 +371,26 @@ function MyPage() {
   };
 
   // 리뷰 이미지 업로드 핸들러
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+
     if (reviewImages.length + files.length > 3) {
       window.alert('최대 3장까지만 업로드 가능합니다.');
       return;
     }
 
-    files.forEach((file) => {
-      if (!file.type.startsWith('image/')) {
-        window.alert('이미지 파일만 업로드 가능합니다.');
-        return;
+    for (const file of files) {
+      try {
+        const compressed = await compressImageFileForReview(file);
+        setReviewImages((prev) => {
+          if (prev.length >= 3) return prev;
+          return [...prev, compressed];
+        });
+      } catch (err) {
+        window.alert(err?.message || '이미지 처리에 실패했습니다.');
       }
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setReviewImages((prev) => [...prev, event.target.result]);
-      };
-      reader.readAsDataURL(file);
-    });
+    }
   };
 
   // 리뷰 이미지 삭제 핸들러
@@ -398,7 +399,7 @@ function MyPage() {
   };
 
   // 리뷰 작성 제출
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     if (!reviewContent.trim()) {
       window.alert('리뷰 내용을 입력해주세요.');
       return;
@@ -415,8 +416,16 @@ function MyPage() {
       window.alert('로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
       return;
     }
-    if (hasReviewForUserProduct(uid, selectedOrder.product.id, username || null)) {
-      window.alert('이미 이 상품에 대한 구매후기를 작성하셨습니다.');
+    if (
+      hasReviewForPurchase({
+        orderItemId: selectedOrder.orderItemId,
+        orderId: selectedOrder.orderId || selectedOrder.id,
+        productId: selectedOrder.product.id,
+        userId: uid,
+        authorFallback: username || null,
+      })
+    ) {
+      window.alert('이미 이 구매 건에 대한 구매후기를 작성하셨습니다.');
       return;
     }
 
@@ -434,14 +443,26 @@ function MyPage() {
       images: reviewImages
     };
 
-    const savedReview = saveReview(reviewData);
-    if (savedReview) {
+    const saveResult = saveReview(reviewData);
+    if (saveResult?.success) {
       window.alert('리뷰가 작성되었습니다.');
       setMyReviews(getReviewsByUserId(uid));
+      await refreshServerOrders();
       handleCloseReviewModal();
     } else {
-      window.alert('리뷰 작성에 실패했습니다.');
+      window.alert(getReviewSaveFailureMessage(saveResult?.reason));
     }
+  };
+
+  const handleGoToWrittenReview = (review) => {
+    const productId = review?.productId;
+    if (productId == null || productId === '') {
+      window.alert('상품 정보를 찾을 수 없습니다.');
+      return;
+    }
+    const params = new URLSearchParams({ tab: 'review' });
+    if (review.id) params.set('reviewId', String(review.id));
+    navigate(`/product/${productId}?${params.toString()}`);
   };
 
   // 리뷰 삭제 (등록 확정된 후기는 삭제 불가)
@@ -1076,7 +1097,18 @@ function MyPage() {
                 <div className="review-list">
                   {myReviews.map((review) => (
                     <div key={review.id} className="review-item written">
-                      <div className="review-product-info">
+                      <div
+                        className="review-product-info review-product-info--link"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleGoToWrittenReview(review)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleGoToWrittenReview(review);
+                          }
+                        }}
+                      >
                         <img 
                           src={review.productImage || 'https://via.placeholder.com/100'} 
                           alt={review.productName}
@@ -1106,8 +1138,12 @@ function MyPage() {
                       </div>
                       {!review.immutable && (
                         <button 
+                          type="button"
                           className="review-delete-btn"
-                          onClick={() => handleDeleteReview(review.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteReview(review.id);
+                          }}
                         >
                           삭제
                         </button>
