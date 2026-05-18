@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
-import { getReviewsByUserId, hasReviewForOrder, hasReviewForUserProduct, saveReview, deleteReview, PAID_ORDER_STATUSES_FOR_REVIEW } from '../utils/review';
+import { getReviewsByUserId, hasReviewForUserProduct, saveReview, deleteReview, buildWritableReviewRows } from '../utils/review';
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
@@ -344,47 +344,11 @@ function MyPage() {
     }
   };
 
-  // 작성 가능한 리뷰 목록 가져오기 (결제 완료 주문, 배송 완료 후 30일 이내, 동일 상품 후기 미작성)
+  // 작성 가능한 리뷰 (결제 완료 이후, 상품별 미작성 — 상품상세와 동일 기준)
   const getAvailableReviews = () => {
     const username = getCookie('username') || '';
     const userId = getUserIdFromToken();
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    
-    return orders.filter(order => {
-      if (!PAID_ORDER_STATUSES_FOR_REVIEW.includes(order._serverStatus)) return false;
-
-      // 배송 완료일 기준으로 30일 이내인지 확인
-      // deliveredDate가 있으면 그것을 사용, 없으면 estimatedDelivery 또는 orderDate 사용
-      let deliveryDate;
-      if (order.deliveredDate) {
-        deliveryDate = new Date(order.deliveredDate);
-      } else if (order.status === '배송완료') {
-        // 배송완료 상태이면 배송 완료일로 간주 (estimatedDelivery 또는 orderDate)
-        deliveryDate = order.estimatedDelivery 
-          ? new Date(order.estimatedDelivery)
-          : new Date(order.orderDate);
-      } else if (order.estimatedDelivery) {
-        // estimatedDelivery가 지났으면 배송 완료로 간주
-        const estimated = new Date(order.estimatedDelivery);
-        deliveryDate = estimated <= now ? estimated : null;
-      } else {
-        // 주문일이 지났으면 배송 완료로 간주
-        const orderDate = new Date(order.orderDate);
-        deliveryDate = orderDate <= now ? orderDate : null;
-      }
-      
-      if (!deliveryDate) return false;
-      
-      // 배송 완료 후 30일 이내
-      const isWithin30Days = deliveryDate >= thirtyDaysAgo;
-      // 해당 주문·상품에 대한 후기 없음 (동일 상품 중복 후기도 불가)
-      const hasNoReview =
-        !hasReviewForOrder(order.orderId || order.id) &&
-        !hasReviewForUserProduct(userId, order.product?.id, username || null);
-      // 상품 정보가 있음
-      return isWithin30Days && hasNoReview && order.product;
-    });
+    return buildWritableReviewRows(orders, userId, username || null);
   };
 
   // 리뷰 작성 모달 열기
@@ -458,6 +422,7 @@ function MyPage() {
 
     const reviewData = {
       orderId: selectedOrder.orderId || selectedOrder.id,
+      orderItemId: selectedOrder.orderItemId ?? null,
       productId: selectedOrder.product.id,
       productName: selectedOrder.product.name,
       productImage: selectedOrder.product.image,

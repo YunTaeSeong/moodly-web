@@ -391,6 +391,14 @@ export const mapServerOrderToMyPageRow = (o) => {
     estimatedDelivery: est,
     trackingNumber: null,
     _serverStatus: o.status,
+    _items: items.map((it) => ({
+      orderItemId: it.id,
+      productId: it.productId,
+      productName: it.productName,
+      productImage: it.productImage,
+      price: Number(it.price),
+      quantity: Number(it.quantity) || 1,
+    })),
   };
 };
 

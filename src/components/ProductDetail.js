@@ -516,6 +516,7 @@ function ProductDetail() {
   const [reviewWriteContext, setReviewWriteContext] = useState(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState('');
+  const [reviewImages, setReviewImages] = useState([]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [showPriceGuide, setShowPriceGuide] = useState(false);
   const [showFreeShippingGuide, setShowFreeShippingGuide] = useState(false);
@@ -579,6 +580,7 @@ function ProductDetail() {
     setReviewWriteContext(eligibleReviewPurchase);
     setReviewRating(5);
     setReviewContent('');
+    setReviewImages([]);
     setShowReviewModal(true);
   };
 
@@ -588,6 +590,32 @@ function ProductDetail() {
     setReviewWriteContext(null);
     setReviewRating(5);
     setReviewContent('');
+    setReviewImages([]);
+  };
+
+  const handleReviewImageUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (reviewImages.length + files.length > 3) {
+      window.alert('최대 3장까지만 업로드 가능합니다.');
+      e.target.value = '';
+      return;
+    }
+    files.forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        window.alert('이미지 파일만 업로드 가능합니다.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setReviewImages((prev) => [...prev, event.target.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const handleReviewImageRemove = (index) => {
+    setReviewImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmitProductReview = () => {
@@ -624,7 +652,7 @@ function ProductDetail() {
         author: username,
         userId: uid,
         immutable: true,
-        images: [],
+        images: reviewImages,
       });
       if (saved) {
         window.alert('구매후기가 등록되었습니다.');
@@ -633,6 +661,7 @@ function ProductDetail() {
         setReviewWriteContext(null);
         setReviewRating(5);
         setReviewContent('');
+        setReviewImages([]);
       } else {
         window.alert('구매후기 등록에 실패했습니다.');
       }
@@ -2468,6 +2497,48 @@ function ProductDetail() {
                   ))}
                 </div>
                 <p className="review-write-rating-text">{reviewRating}점</p>
+              </div>
+              <div className="inquiry-form-group">
+                <label htmlFor="product-review-image-input">사진 첨부 (최대 3장)</label>
+                <div className="review-image-upload-area">
+                  {reviewImages.length < 3 && (
+                    <label htmlFor="product-review-image-input" className="review-image-upload-btn">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      <span>사진 추가</span>
+                    </label>
+                  )}
+                  <input
+                    id="product-review-image-input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleReviewImageUpload}
+                    style={{ display: 'none' }}
+                    disabled={reviewSubmitting}
+                  />
+                  <div className="review-image-preview-list">
+                    {reviewImages.map((image, index) => (
+                      <div key={index} className="review-image-preview-item">
+                        <img src={image} alt={`리뷰 이미지 ${index + 1}`} />
+                        <button
+                          type="button"
+                          className="review-image-remove-btn"
+                          onClick={() => handleReviewImageRemove(index)}
+                          disabled={reviewSubmitting}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="inquiry-form-group">
                 <label htmlFor="product-review-content">구매후기</label>

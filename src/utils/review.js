@@ -34,6 +34,63 @@ export const hasReviewForUserProduct = (userId, productId, authorFallback = null
   });
 };
 
+/**
+ * 마이페이지·상품상세 공통: 작성 가능한 후기 행 목록
+ * (결제 완료 이후 상태, 상품별 미작성)
+ */
+export const buildWritableReviewRows = (orderRows, userId, authorFallback = null) => {
+  if (!Array.isArray(orderRows) || !orderRows.length) return [];
+  const uid = userId != null && userId !== '' ? Number(userId) : null;
+  if (uid == null || Number.isNaN(uid)) return [];
+
+  const rows = [];
+  const seenProductIds = new Set();
+  for (const order of orderRows) {
+    if (!isPaidServerOrderRaw({ status: order._serverStatus })) continue;
+
+    const lineItems =
+      order._items?.length > 0
+        ? order._items
+        : order.product
+          ? [
+              {
+                orderItemId: order.orderItemId,
+                productId: order.product.id,
+                productName: order.product.name,
+                productImage: order.product.image,
+                price: order.product.price,
+                quantity: order.quantity,
+              },
+            ]
+          : [];
+
+    for (const item of lineItems) {
+      const productId = item.productId;
+      if (productId == null) continue;
+      const pidNum = Number(productId);
+      if (Number.isNaN(pidNum) || seenProductIds.has(pidNum)) continue;
+      if (hasReviewForUserProduct(uid, productId, authorFallback)) continue;
+      seenProductIds.add(pidNum);
+      rows.push({
+        id: `${order.id}-${item.orderItemId ?? productId}`,
+        orderId: order.orderId,
+        orderItemId: item.orderItemId,
+        orderDate: order.orderDate,
+        status: order.status,
+        _serverStatus: order._serverStatus,
+        quantity: item.quantity || 1,
+        product: {
+          id: productId,
+          name: item.productName,
+          price: item.price,
+          image: item.productImage,
+        },
+      });
+    }
+  }
+  return rows;
+};
+
 /** 결제 완료 주문 중 해당 상품이 포함되고, 아직 후기가 없으면 { rawOrder, line } */
 export const findEligiblePurchaseForReview = (rawOrders, productId, userId, authorFallback = null) => {
   if (!Array.isArray(rawOrders) || !rawOrders.length || productId == null) return null;
@@ -55,6 +112,7 @@ export const saveReview = (reviewData) => {
     const newReview = {
       id: `REVIEW_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       orderId: reviewData.orderId,
+      orderItemId: reviewData.orderItemId != null ? reviewData.orderItemId : null,
       productId: reviewData.productId,
       productName: reviewData.productName,
       productImage: reviewData.productImage,

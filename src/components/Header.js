@@ -570,17 +570,12 @@ function Header() {
                                 {notification.message || notification.notificationMessage || notification.notification_message || ''}
                               </div>
                               <div className="notification-time">
-                                {notification.createdAt ? new Date(notification.createdAt).toLocaleString('ko-KR', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                }) : (notification.created_at ? new Date(notification.created_at).toLocaleString('ko-KR', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                }) : '')}
+                                {(notification.createdAt || notification.created_at)
+                                  ? new Date(notification.createdAt || notification.created_at).toLocaleDateString('ko-KR', {
+                                      month: 'long',
+                                      day: 'numeric',
+                                    })
+                                  : ''}
                               </div>
                             </div>
                             <button
