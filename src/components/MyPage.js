@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn, isAdmin } from '../utils/cookie';
 import { getWishlist, removeFromWishlist } from '../utils/wishlist';
-import { getReviewsByUserId, hasReviewForPurchase, saveReview, deleteReview, buildWritableReviewRows, getReviewSaveFailureMessage } from '../utils/review';
+import { hasReviewForPurchase, buildWritableReviewRows } from '../utils/review';
 import { compressImageFileForReview } from '../utils/reviewImage';
 import { getInquiries, deleteInquiry, updateInquiry } from '../utils/inquiry';
 import { getCookie } from '../utils/cookie';
 import { allProducts } from '../utils/products';
-import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi, fetchUserCoupons, fetchReceivableCoupons, issueCouponById, fetchServerOrders, mapServerOrderToMyPageRow, cancelServerPayment } from '../utils/api';
+import { changeMyPassword, getDeliveryAddresses, createDeliveryAddress, updateDeliveryAddress, deleteDeliveryAddress, setDefaultDeliveryAddress, addToCart, getWishlistItems, removeWishlistItem, getProductById, getProductInquiriesApi, getAdminProductInquiriesApi, updateProductInquiryApi, deleteProductInquiryApi, adminUpdateProductInquiryApi, adminDeleteProductInquiryApi, adminReplyProductInquiryApi, createProductReviewApi, getMyProductReviewsApi, getAdminProductReviewsApi, adminReplyProductReviewApi, adminDeleteProductReviewApi, fetchUserCoupons, fetchReceivableCoupons, issueCouponById, fetchServerOrders, mapServerOrderToMyPageRow, cancelServerPayment } from '../utils/api';
 import { getUserIdFromToken, hasRolesInToken, isAdminFromToken } from '../utils/token';
 import { logout } from '../utils/authApi';
 import { clearAuthCookies } from '../utils/cookie';
@@ -63,8 +63,26 @@ function MyPage() {
   const [editingInquiryId, setEditingInquiryId] = useState(null);
   const [editingInquiryContent, setEditingInquiryContent] = useState('');
   const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyModalTarget, setReplyModalTarget] = useState(null);
   const [selectedInquiryIdForReply, setSelectedInquiryIdForReply] = useState(null);
+  const [selectedReviewIdForReply, setSelectedReviewIdForReply] = useState(null);
   const [replyContent, setReplyContent] = useState('');
+
+  const isAdminUser = () => (hasRolesInToken() ? isAdminFromToken() : isAdmin());
+
+  const loadMyReviews = async () => {
+    if (!isLoggedIn()) {
+      setMyReviews([]);
+      return;
+    }
+    if (isAdminUser()) {
+      const res = await getAdminProductReviewsApi({ size: 200 });
+      setMyReviews(res.success ? res.data || [] : []);
+      return;
+    }
+    const res = await getMyProductReviewsApi();
+    setMyReviews(res.success ? res.data || [] : []);
+  };
   const [deliveryAddresses, setDeliveryAddresses] = useState([]);
   const [showDeliveryAddressModal, setShowDeliveryAddressModal] = useState(false);
   const [editingDeliveryAddress, setEditingDeliveryAddress] = useState(null);
@@ -129,9 +147,7 @@ function MyPage() {
 
       refreshServerOrders();
 
-      const uid = getUserIdFromToken();
-      setMyReviews(uid != null ? getReviewsByUserId(uid) : []);
-
+      loadMyReviews();
       loadMyInquiriesFromServer();
     } else {
       setWishlist(getWishlist());
@@ -349,7 +365,7 @@ function MyPage() {
   const getAvailableReviews = () => {
     const username = getCookie('username') || '';
     const userId = getUserIdFromToken();
-    return buildWritableReviewRows(orders, userId, username || null);
+    return buildWritableReviewRows(orders, userId, username || null, myReviews);
   };
 
   // 리뷰 작성 모달 열기
@@ -416,41 +432,41 @@ function MyPage() {
       window.alert('로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
       return;
     }
+    const orderItemId = selectedOrder.orderItemId;
+    if (orderItemId == null || Number.isNaN(Number(orderItemId))) {
+      window.alert('주문 상품 정보가 올바르지 않습니다.');
+      return;
+    }
     if (
-      hasReviewForPurchase({
-        orderItemId: selectedOrder.orderItemId,
-        orderId: selectedOrder.orderId || selectedOrder.id,
-        productId: selectedOrder.product.id,
-        userId: uid,
-        authorFallback: username || null,
-      })
+      hasReviewForPurchase(
+        {
+          orderItemId,
+          orderId: selectedOrder.orderId || selectedOrder.id,
+          productId: selectedOrder.product.id,
+          userId: uid,
+          authorFallback: username || null,
+        },
+        myReviews
+      )
     ) {
       window.alert('이미 이 구매 건에 대한 구매후기를 작성하셨습니다.');
       return;
     }
 
-    const reviewData = {
-      orderId: selectedOrder.orderId || selectedOrder.id,
-      orderItemId: selectedOrder.orderItemId ?? null,
+    const saveResult = await createProductReviewApi({
+      orderItemId: Number(orderItemId),
       productId: selectedOrder.product.id,
-      productName: selectedOrder.product.name,
-      productImage: selectedOrder.product.image,
       rating: reviewRating,
-      content: reviewContent,
-      author: username,
-      userId: uid,
-      immutable: true,
-      images: reviewImages
-    };
-
-    const saveResult = saveReview(reviewData);
+      content: reviewContent.trim(),
+      images: reviewImages,
+    });
     if (saveResult?.success) {
       window.alert('리뷰가 작성되었습니다.');
-      setMyReviews(getReviewsByUserId(uid));
+      await loadMyReviews();
       await refreshServerOrders();
       handleCloseReviewModal();
     } else {
-      window.alert(getReviewSaveFailureMessage(saveResult?.reason));
+      window.alert(saveResult?.message || '리뷰 작성에 실패했습니다.');
     }
   };
 
@@ -465,16 +481,22 @@ function MyPage() {
     navigate(`/product/${productId}?${params.toString()}`);
   };
 
-  // 리뷰 삭제 (등록 확정된 후기는 삭제 불가)
-  const handleDeleteReview = (reviewId) => {
-    if (window.confirm('리뷰를 삭제하시겠습니까?')) {
-      if (deleteReview(reviewId)) {
-        window.alert('리뷰가 삭제되었습니다.');
-        const uid = getUserIdFromToken();
-        setMyReviews(uid != null ? getReviewsByUserId(uid) : []);
-      } else {
-        window.alert('삭제할 수 없는 리뷰입니다. 등록된 구매 후기는 수정·삭제가 제한됩니다.');
-      }
+  const handleOpenReviewReplyModal = (reviewId) => {
+    setReplyModalTarget('review');
+    setSelectedReviewIdForReply(reviewId);
+    setSelectedInquiryIdForReply(null);
+    setReplyContent('');
+    setShowReplyModal(true);
+  };
+
+  const handleAdminDeleteReview = async (reviewId) => {
+    if (!window.confirm('구매후기를 삭제하시겠습니까?')) return;
+    const res = await adminDeleteProductReviewApi(reviewId);
+    if (res.success) {
+      window.alert('구매후기가 삭제되었습니다.');
+      await loadMyReviews();
+    } else {
+      window.alert(res.message || '구매후기 삭제에 실패했습니다.');
     }
   };
 
@@ -562,23 +584,40 @@ function MyPage() {
 
   // 관리자 답변 모달 열기/닫기
   const handleOpenReplyModal = (inquiryId) => {
+    setReplyModalTarget('inquiry');
     setSelectedInquiryIdForReply(inquiryId);
+    setSelectedReviewIdForReply(null);
     setReplyContent('');
     setShowReplyModal(true);
   };
   const handleCloseReplyModal = () => {
     setShowReplyModal(false);
+    setReplyModalTarget(null);
     setSelectedInquiryIdForReply(null);
+    setSelectedReviewIdForReply(null);
     setReplyContent('');
   };
 
-  // 관리자 답변 제출
   const handleSubmitReply = async () => {
-    if (!selectedInquiryIdForReply) return;
     if (!replyContent.trim()) {
       window.alert('답변 내용을 입력해주세요.');
       return;
     }
+
+    if (replyModalTarget === 'review') {
+      if (!selectedReviewIdForReply) return;
+      const res = await adminReplyProductReviewApi(selectedReviewIdForReply, replyContent.trim());
+      if (res?.success) {
+        window.alert('답변이 등록되었습니다.');
+        handleCloseReplyModal();
+        await loadMyReviews();
+      } else {
+        window.alert(res?.message || '답변 등록에 실패했습니다.');
+      }
+      return;
+    }
+
+    if (!selectedInquiryIdForReply) return;
     const res = await adminReplyProductInquiryApi(selectedInquiryIdForReply, replyContent.trim());
     if (res && res.success) {
       window.alert('답변이 등록되었습니다.');
@@ -670,7 +709,7 @@ function MyPage() {
     { id: 'home', label: '마이쇼핑 홈' },
     { id: 'orders', label: '주문/배송내역' },
     { id: 'wishlist', label: '찜한 상품' },
-    { id: 'review', label: '리뷰 관리' },
+    { id: 'review', label: isAdminUser() ? '구매후기' : '리뷰 관리' },
     { id: 'inquiry', label: '상품 문의' },
     { id: 'coupon', label: '쿠폰함' },
     { id: 'delivery', label: '배송지 관리' }
@@ -1043,8 +1082,61 @@ function MyPage() {
             )}
           </div>
         );
-      case 'review':
+      case 'review': {
         const availableReviews = getAvailableReviews();
+        if (isAdminUser()) {
+          return (
+            <div className="mypage-content-section">
+              <h2>구매후기 (전체)</h2>
+              {myReviews.length === 0 ? (
+                <div className="mypage-empty">
+                  <p>등록된 구매후기가 없습니다.</p>
+                </div>
+              ) : (
+                <div className="inquiry-list">
+                  {myReviews.map((review) => (
+                    <div key={review.id} className="inquiry-item">
+                      <div className="inquiry-item-header">
+                        <div className="inquiry-item-header-left">
+                          <span className="inquiry-author">{review.productName || '상품'}</span>
+                          <span className="inquiry-date">
+                            {new Date(review.createdAt).toLocaleDateString('ko-KR')}
+                          </span>
+                        </div>
+                        <div className="inquiry-item-header-right">
+                          {!review.reply ? (
+                            <button
+                              type="button"
+                              className="inquiry-reply-btn"
+                              onClick={() => handleOpenReviewReplyModal(review.id)}
+                            >
+                              답변하기
+                            </button>
+                          ) : (
+                            <span className="inquiry-status completed">답변완료</span>
+                          )}
+                          <button
+                            type="button"
+                            className="inquiry-delete-btn"
+                            onClick={() => handleAdminDeleteReview(review.id)}
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                      <div className="inquiry-item-content">{review.content}</div>
+                      {review.reply ? (
+                        <div className="inquiry-reply">
+                          <div className="inquiry-reply-content">{review.reply}</div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }
         return (
           <div className="mypage-content-section">
             <h2>리뷰 관리</h2>
@@ -1136,18 +1228,6 @@ function MyPage() {
                           </p>
                         </div>
                       </div>
-                      {!review.immutable && (
-                        <button 
-                          type="button"
-                          className="review-delete-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteReview(review.id);
-                          }}
-                        >
-                          삭제
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -1155,6 +1235,7 @@ function MyPage() {
             </div>
           </div>
         );
+      }
       case 'inquiry': {
         const isAdminInquiry = hasRolesInToken() ? isAdminFromToken() : isAdmin();
         return (
@@ -1296,8 +1377,7 @@ function MyPage() {
               </div>
             )}
 
-            {/* 관리자 답변 작성 모달 */}
-            {showReplyModal && (
+            {false && showReplyModal && (
               <div className="inquiry-modal-overlay" onClick={handleCloseReplyModal}>
                 <div className="inquiry-modal" onClick={(e) => e.stopPropagation()}>
                   <div className="inquiry-modal-header">
@@ -1911,6 +1991,63 @@ function MyPage() {
               </button>
               <button className="review-modal-btn submit" onClick={handleSubmitReview}>
                 작성하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReplyModal && (
+        <div className="inquiry-modal-overlay" onClick={handleCloseReplyModal}>
+          <div className="inquiry-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="inquiry-modal-header">
+              <h3>{replyModalTarget === 'review' ? '구매후기 답변 작성' : '답변 작성'}</h3>
+              <button type="button" className="inquiry-modal-close" onClick={handleCloseReplyModal}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div className="inquiry-modal-body">
+              {replyModalTarget === 'review' &&
+                selectedReviewIdForReply &&
+                myReviews.find((r) => r.id === selectedReviewIdForReply) && (
+                  <div className="inquiry-form-group">
+                    <label>후기 내용</label>
+                    <div className="inquiry-original-content">
+                      {myReviews.find((r) => r.id === selectedReviewIdForReply).content}
+                    </div>
+                  </div>
+                )}
+              {replyModalTarget !== 'review' &&
+                selectedInquiryIdForReply &&
+                myInquiries.find((i) => i.id === selectedInquiryIdForReply) && (
+                  <div className="inquiry-form-group">
+                    <label>문의 내용</label>
+                    <div className="inquiry-original-content">
+                      {myInquiries.find((i) => i.id === selectedInquiryIdForReply).content}
+                    </div>
+                  </div>
+                )}
+              <div className="inquiry-form-group">
+                <label htmlFor="mypage-reply-content">답변 내용</label>
+                <textarea
+                  id="mypage-reply-content"
+                  className="inquiry-content-textarea"
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  placeholder="답변 내용을 입력해주세요."
+                  rows={8}
+                />
+              </div>
+            </div>
+            <div className="inquiry-modal-footer">
+              <button type="button" className="inquiry-modal-btn cancel" onClick={handleCloseReplyModal}>
+                취소
+              </button>
+              <button type="button" className="inquiry-modal-btn submit" onClick={handleSubmitReply}>
+                확인
               </button>
             </div>
           </div>

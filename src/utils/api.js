@@ -1786,6 +1786,176 @@ export const adminDeleteProductInquiryApi = async (inquiryId) => {
   }
 };
 
+// ========== 구매후기 API (product-service) ==========
+const mapReviewFromApi = (item) => {
+  if (!item) return null;
+  return {
+    id: item.id,
+    orderItemId: item.orderItemId,
+    orderId: item.orderItemId,
+    productId: item.productId,
+    userId: item.userId,
+    productName: item.productName,
+    productImage: item.productImage,
+    rating: item.rating,
+    content: item.content,
+    author: '회원',
+    createdAt: item.createdAt,
+    reply: item.reply || null,
+    replyDate: item.replyDate || null,
+    replyName: item.replyName || null,
+    images: Array.isArray(item.images) ? item.images : [],
+    immutable: true,
+  };
+};
+
+/** 상품 구매후기 목록 (공개) */
+export const getProductReviewsByProductApi = async (productId, { page = 0, size = 50 } = {}) => {
+  try {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    const response = await fetch(
+      `${PRODUCT_API_BASE_URL}/product/review/product/${productId}?${params}`,
+      { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, message: getErrorMessage(data, '구매후기 목록 조회에 실패했습니다.'), status: response.status };
+    }
+    const list = (data.content || []).map(mapReviewFromApi);
+    return { success: true, data: list, totalElements: data.totalElements ?? list.length };
+  } catch (e) {
+    console.error('구매후기 목록 조회 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 내 구매후기 목록 */
+export const getMyProductReviewsApi = async () => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/review/my`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, message: getErrorMessage(data, '내 구매후기 조회에 실패했습니다.'), status: response.status };
+    }
+    const list = (Array.isArray(data) ? data : []).map(mapReviewFromApi);
+    return { success: true, data: list };
+  } catch (e) {
+    console.error('내 구매후기 조회 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 구매후기 작성 */
+export const createProductReviewApi = async ({ orderItemId, productId, rating, content, images = [] }) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        orderItemId: Number(orderItemId),
+        productId: Number(productId),
+        rating,
+        content: content.trim(),
+        images: images.slice(0, 3),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, message: getErrorMessage(data, '구매후기 등록에 실패했습니다.'), status: response.status };
+    }
+    return { success: true, data: mapReviewFromApi(data) };
+  } catch (e) {
+    console.error('구매후기 등록 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 주문 상품 라인별 후기 존재 여부 */
+export const checkProductReviewExistsApi = async (orderItemId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, exists: false, status: 401 };
+    const params = new URLSearchParams({ orderItemId: String(orderItemId) });
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/review/exists?${params}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, exists: false, status: response.status };
+    return { success: true, exists: Boolean(data.exists) };
+  } catch (e) {
+    return { success: false, exists: false, status: 0 };
+  }
+};
+
+/** 관리자: 전체 구매후기 */
+export const getAdminProductReviewsApi = async ({ page = 0, size = 50 } = {}) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/admin/review?${params}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, message: getErrorMessage(data, '구매후기 목록 조회에 실패했습니다.'), status: response.status };
+    }
+    const list = (data.content || []).map(mapReviewFromApi);
+    return { success: true, data: list };
+  } catch (e) {
+    console.error('관리자 구매후기 목록 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 관리자: 구매후기 답변 */
+export const adminReplyProductReviewApi = async (reviewId, reply) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/admin/review/${reviewId}/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reply: reply.trim() }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, message: getErrorMessage(data, '답변 등록에 실패했습니다.'), status: response.status };
+    }
+    return { success: true, data: mapReviewFromApi(data) };
+  } catch (e) {
+    console.error('구매후기 답변 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
+/** 관리자: 구매후기 삭제 */
+export const adminDeleteProductReviewApi = async (reviewId) => {
+  try {
+    const token = getAccessToken();
+    if (!token) return { success: false, message: '로그인이 필요합니다.', status: 401 };
+    const response = await fetch(`${PRODUCT_API_BASE_URL}/product/admin/review/${reviewId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.status === 204 || response.ok) return { success: true };
+    const data = await response.json().catch(() => ({}));
+    return { success: false, message: getErrorMessage(data, '구매후기 삭제에 실패했습니다.'), status: response.status };
+  } catch (e) {
+    console.error('구매후기 삭제 오류:', e);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', status: 0 };
+  }
+};
+
 // 배송지 목록 조회
 export const getDeliveryAddresses = async () => {
   try {

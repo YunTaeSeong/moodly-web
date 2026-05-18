@@ -41,14 +41,17 @@ const purchaseKeysMatch = (a, b) => {
   return String(a) === String(b);
 };
 
-export const hasReviewForPurchase = ({
-  orderItemId,
-  orderId,
-  productId,
-  userId,
-  authorFallback = null,
-}) => {
-  const reviews = getReviews();
+export const hasReviewForPurchase = (
+  {
+    orderItemId,
+    orderId,
+    productId,
+    userId,
+    authorFallback = null,
+  },
+  reviewsSource = null
+) => {
+  const reviews = Array.isArray(reviewsSource) ? reviewsSource : getReviews();
   const pid = productId != null ? Number(productId) : null;
 
   return reviews.some((r) => {
@@ -76,7 +79,7 @@ export const hasReviewForUserProduct = (userId, productId, authorFallback = null
 /**
  * 마이페이지: 작성 가능한 후기 (결제 완료 주문 × 주문 상품 라인별 1건)
  */
-export const buildWritableReviewRows = (orderRows, userId, authorFallback = null) => {
+export const buildWritableReviewRows = (orderRows, userId, authorFallback = null, reviewsSource = null) => {
   if (!Array.isArray(orderRows) || !orderRows.length) return [];
   const uid = userId != null && userId !== '' ? Number(userId) : null;
   if (uid == null || Number.isNaN(uid)) return [];
@@ -105,13 +108,16 @@ export const buildWritableReviewRows = (orderRows, userId, authorFallback = null
       const productId = item.productId;
       if (productId == null) continue;
       if (
-        hasReviewForPurchase({
-          orderItemId: item.orderItemId,
-          orderId: order.orderId,
-          productId,
-          userId: uid,
-          authorFallback,
-        })
+        hasReviewForPurchase(
+          {
+            orderItemId: item.orderItemId,
+            orderId: order.orderId,
+            productId,
+            userId: uid,
+            authorFallback,
+          },
+          reviewsSource
+        )
       ) {
         continue;
       }
@@ -140,7 +146,13 @@ export const buildWritableReviewRows = (orderRows, userId, authorFallback = null
 };
 
 /** 상품 상세: 해당 상품 중 아직 후기 없는 첫 구매 건 */
-export const findEligiblePurchaseForReview = (rawOrders, productId, userId, authorFallback = null) => {
+export const findEligiblePurchaseForReview = (
+  rawOrders,
+  productId,
+  userId,
+  authorFallback = null,
+  reviewsSource = null
+) => {
   if (!Array.isArray(rawOrders) || !rawOrders.length || productId == null) return null;
   const uid = userId != null && userId !== '' ? Number(userId) : null;
   if (uid == null || Number.isNaN(uid)) return null;
@@ -154,13 +166,16 @@ export const findEligiblePurchaseForReview = (rawOrders, productId, userId, auth
       const orderItemId =
         line.id != null && line.id !== '' ? line.id : o.orderId ? `${o.orderId}-${pid}` : null;
       if (
-        hasReviewForPurchase({
-          orderItemId,
-          orderId: o.orderId,
-          productId: pid,
-          userId: uid,
-          authorFallback,
-        })
+        hasReviewForPurchase(
+          {
+            orderItemId,
+            orderId: o.orderId,
+            productId: pid,
+            userId: uid,
+            authorFallback,
+          },
+          reviewsSource
+        )
       ) {
         continue;
       }
