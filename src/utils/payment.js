@@ -44,10 +44,13 @@ export const processPayment = async (paymentData) => {
   try {
     const TossPayments = await loadTossPayments();
     
-    const clientKey =
-      process.env.REACT_APP_TOSS_CLIENT_KEY ||
-      'test_ck_ZLKGPx4M3MqXZvJ0QQ2w3BaWypv1';
-    
+    const clientKey = process.env.REACT_APP_TOSS_CLIENT_KEY;
+    if (!clientKey) {
+      throw new Error(
+        'REACT_APP_TOSS_CLIENT_KEY가 설정되지 않았습니다. .env에 토스 클라이언트 키(test_ck_...)를 추가한 뒤 개발 서버를 재시작하세요.'
+      );
+    }
+
     const tossPayments = TossPayments(clientKey);
 
     // 결제 방법 선택 (기본값: 카드)
