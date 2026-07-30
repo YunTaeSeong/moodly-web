@@ -467,16 +467,50 @@ export const fetchUserCoupons = async () => {
 export const mapReceivableCouponApiToFrontend = (row) => {
   if (!row) return null;
   const discountType = row.discountType === 'FIXED' ? 'fixed' : 'percent';
+  const name = row.name || '쿠폰';
+  const isFlash = String(name).includes('선착순');
   return {
     id: row.id,
     couponId: row.id,
-    name: row.name || '쿠폰',
-    description: '회원가입을 축하합니다!',
+    name,
+    description: isFlash ? '선착순 한정! 전 상품 적용' : '회원가입을 축하합니다!',
     discount: row.discount != null ? Number(row.discount) : 0,
     discountType,
     minPurchase: row.minPurchase != null ? Number(row.minPurchase) : 0,
     validDays: row.validDays,
   };
+};
+
+/**
+ * 홈 배너 선착순 쿠폰 실시간 상태 (GET /coupon/flash/status, 비로그인 가능)
+ */
+export const fetchFlashCouponStatus = async () => {
+  try {
+    const token = getAccessToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await fetch(`${COUPON_API_BASE_URL}/coupon/flash/status`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const inner = errorData?.body && typeof errorData.body === 'object' ? errorData.body : errorData;
+      return {
+        success: false,
+        message: inner?.message || errorData.message || '쿠폰 상태를 불러오지 못했습니다.',
+        data: null,
+        status: response.status,
+      };
+    }
+    const data = await response.json();
+    return { success: true, data, status: response.status };
+  } catch (error) {
+    console.error('선착순 쿠폰 상태 조회 오류:', error);
+    return { success: false, message: '네트워크 오류 또는 서버 연결 실패.', data: null, status: 0, originalError: error };
+  }
 };
 
 /**
@@ -531,9 +565,11 @@ export const issueCouponById = async (couponId) => {
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      const inner = errorData?.body && typeof errorData.body === 'object' ? errorData.body : errorData;
       return {
         success: false,
-        message: errorData.message || errorData.body?.message || '쿠폰을 받지 못했습니다.',
+        message: inner?.message || errorData.message || '쿠폰을 받지 못했습니다.',
+        errorCode: inner?.code,
         status: response.status,
       };
     }

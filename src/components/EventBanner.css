@@ -144,6 +144,41 @@
   transform: translateY(0);
 }
 
+.flash-coupon-slide {
+  cursor: pointer;
+}
+
+.flash-coupon-overlay {
+  background: rgba(0, 0, 0, 0.35) !important;
+}
+
+.flash-coupon-badge {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.flash-coupon-button.disabled,
+.flash-coupon-button:disabled {
+  background-color: rgba(255, 255, 255, 0.75);
+  color: #7f8c8d;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.flash-coupon-button.disabled:hover,
+.flash-coupon-button:disabled:hover {
+  transform: none;
+  background-color: rgba(255, 255, 255, 0.75);
+}
+
 .banner-indicators {
   position: absolute;
   bottom: 20px;
